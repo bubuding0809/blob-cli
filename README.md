@@ -13,7 +13,7 @@ The CLI uploads to your Blob store and prints URLs that point at your viewer. Yo
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bubuding0809/blob-cli/v0.2.5/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bubuding0809/blob-cli/v0.3.0/install.sh | bash
 ```
 
 Or with npm directly:
