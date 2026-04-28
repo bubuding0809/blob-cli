@@ -16,7 +16,8 @@
     "test": "bun test",
     "test:integration": "bun test test/integration.test.ts",
     "dev": "bun run src/cli.ts",
-    "prepublishOnly": "bun run build"
+    "prepublishOnly": "bun run build",
+    "release": "./scripts/release.sh"
   },
   "devDependencies": {
     "@types/bun": "latest",
