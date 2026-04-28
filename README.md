@@ -94,3 +94,18 @@ blob init --force --token "$BLOB_RW_TOKEN" --viewer-url "$VIEWER_URL"
 - Config lives at `~/.config/blob-cli/config.json` (mode 0600).
 - `BLOB_READ_WRITE_TOKEN` env var overrides the stored token if set.
 - `BLOB_VIEWER_URL` env var overrides the stored viewer URL if set.
+
+## For Claude / agent users
+
+This repo includes:
+
+- [`AGENTS.md`](./AGENTS.md) — vendor-neutral install + daily-use guide for any agent.
+- [`.claude/skills/blob-cli-setup/`](./.claude/skills/blob-cli-setup) — Claude skill for one-time onboarding.
+- [`.claude/skills/blob-cli-share/`](./.claude/skills/blob-cli-share) — Claude skill for the everyday "share this artifact" flow.
+
+To install the skills into your Claude Code:
+
+```bash
+mkdir -p ~/.claude/skills
+cp -r .claude/skills/blob-cli-* ~/.claude/skills/
+```
