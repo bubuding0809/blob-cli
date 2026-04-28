@@ -26,6 +26,26 @@ export async function validateToken(
   }
 }
 
+export interface ValidateViewerDeps {
+  fetch?: typeof fetch;
+}
+
+export async function validateViewer(
+  url: string,
+  deps: ValidateViewerDeps = {},
+): Promise<boolean> {
+  const doFetch = deps.fetch ?? fetch;
+  const base = url.replace(/\/+$/, "");
+  const res = await doFetch(`${base}/api/health`);
+  if (!res.ok) return false;
+  try {
+    const data = (await res.json()) as { ok?: unknown };
+    return data?.ok === true;
+  } catch {
+    return false;
+  }
+}
+
 export interface InitDeps {
   prompt?: PromptFn;
   validate?: (token: string) => Promise<boolean>;
