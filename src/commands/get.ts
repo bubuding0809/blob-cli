@@ -1,7 +1,8 @@
 import { writeFile } from "node:fs/promises";
-import { head as sdkHead, type HeadBlobResult } from "@vercel/blob";
+import { Readable } from "node:stream";
+import { get as sdkGet, type GetBlobResult } from "@vercel/blob";
 
-import { resolveToken } from "../config.ts";
+import { resolveToken, resolveViewerUrl } from "../config.ts";
 
 export interface GetOpts {
   urlOrPath: string;
@@ -10,32 +11,49 @@ export interface GetOpts {
 
 export interface GetDeps {
   token?: string;
-  head?: (pathname: string, options: { token: string }) => Promise<HeadBlobResult>;
-  fetch?: typeof fetch;
+  viewerUrl?: string;
+  get?: (
+    pathname: string,
+    options: { access: "private"; token: string },
+  ) => Promise<GetBlobResult | null>;
   writeStdout?: (chunk: Buffer) => void;
 }
 
 export async function runGet(opts: GetOpts, deps: GetDeps = {}): Promise<void> {
   const token = deps.token ?? resolveToken();
-  const head = deps.head ?? sdkHead;
-  const doFetch = deps.fetch ?? fetch;
+  const viewerUrl = (deps.viewerUrl ?? resolveViewerUrl()).replace(/\/+$/, "");
+  const doGet = deps.get ?? sdkGet;
   const writeStdout =
     deps.writeStdout ?? ((chunk: Buffer) => process.stdout.write(chunk));
 
-  let url: string;
+  // Resolve to a bare pathname.
+  let pathname: string;
   if (/^https?:\/\//i.test(opts.urlOrPath)) {
-    url = opts.urlOrPath;
+    if (!opts.urlOrPath.startsWith(`${viewerUrl}/`)) {
+      throw new Error(
+        `URL must be a pathname or start with the viewer URL (${viewerUrl}). Got: ${opts.urlOrPath}`,
+      );
+    }
+    pathname = opts.urlOrPath.slice(viewerUrl.length + 1);
   } else {
-    const meta = await head(opts.urlOrPath, { token });
-    url = meta.url;
+    pathname = opts.urlOrPath;
   }
 
-  const res = await doFetch(url);
-  if (!res.ok) {
-    throw new Error(`fetch failed: ${res.status} ${res.statusText}`);
+  const result = await doGet(pathname, { access: "private", token });
+  if (!result || result.statusCode !== 200 || !result.stream) {
+    throw new Error(`not found: ${pathname}`);
   }
 
-  const buf = Buffer.from(await res.arrayBuffer());
+  // Convert WebReadableStream → Buffer
+  const chunks: Uint8Array[] = [];
+  const reader = result.stream.getReader();
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    if (value) chunks.push(value);
+  }
+  const buf = Buffer.concat(chunks.map((c) => Buffer.from(c)));
+
   if (opts.out) {
     await writeFile(opts.out, buf);
   } else {

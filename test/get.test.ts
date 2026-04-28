@@ -5,50 +5,77 @@ import { join } from "node:path";
 
 import { runGet } from "../src/commands/get.ts";
 
+const okGet = (body: string) =>
+  ((async () => ({
+    statusCode: 200,
+    stream: new Response(body).body!,
+    headers: new Headers({ "content-type": "text/html" }),
+    blob: { pathname: "x.html" },
+  })) as any);
+
 describe("runGet", () => {
-  test("fetches a URL directly when input is http(s)", async () => {
-    let fetched: string | null = null;
+  test("extracts pathname from a viewer URL and calls SDK get with private access", async () => {
+    let captured: any = null;
     let written = "";
     await runGet(
-      { urlOrPath: "https://example.com/x.html" },
+      { urlOrPath: "https://v.example.com/report-x.html" },
       {
         token: "t",
-        head: async () => {
-          throw new Error("should not be called for direct URL");
-        },
-        fetch: (async (u: string) => {
-          fetched = u;
-          return new Response("hello");
+        viewerUrl: "https://v.example.com",
+        get: (async (pathname: string, options: any) => {
+          captured = { pathname, options };
+          return {
+            statusCode: 200,
+            stream: new Response("hello").body!,
+            headers: new Headers({ "content-type": "text/html" }),
+            blob: { pathname: "report-x.html" },
+          };
         }) as any,
         writeStdout: (chunk: Buffer) => {
           written += chunk.toString();
         },
       },
     );
-    expect(fetched as any).toBe("https://example.com/x.html");
+    expect(captured.pathname).toBe("report-x.html");
+    expect(captured.options.access).toBe("private");
+    expect(captured.options.token).toBe("t");
     expect(written).toBe("hello");
   });
 
-  test("resolves a pathname via head(), then fetches", async () => {
-    let headCalled: string | null = null;
-    let fetched: string | null = null;
+  test("treats bare pathname as pathname directly", async () => {
+    let captured = "";
     await runGet(
-      { urlOrPath: "report.html" },
+      { urlOrPath: "report-x.html" },
       {
         token: "t",
-        head: async (p: string) => {
-          headCalled = p;
-          return { url: "https://store/report-x.html" } as any;
-        },
-        fetch: (async (u: string) => {
-          fetched = u;
-          return new Response("body");
+        viewerUrl: "https://v.example.com",
+        get: (async (pathname: string) => {
+          captured = pathname;
+          return {
+            statusCode: 200,
+            stream: new Response("body").body!,
+            headers: new Headers(),
+            blob: { pathname },
+          };
         }) as any,
         writeStdout: () => {},
       },
     );
-    expect(headCalled as any).toBe("report.html");
-    expect(fetched as any).toBe("https://store/report-x.html");
+    expect(captured).toBe("report-x.html");
+  });
+
+  test("rejects an http(s) URL that doesn't match the viewer", async () => {
+    await expect(
+      runGet(
+        { urlOrPath: "https://other.example.com/x.html" },
+        {
+          token: "t",
+          viewerUrl: "https://v.example.com",
+          get: okGet("x"),
+          writeStdout: () => {},
+        },
+      ),
+    ).rejects.toThrow(/viewer URL|pathname/);
   });
 
   test("--out writes to file instead of stdout", async () => {
@@ -56,11 +83,11 @@ describe("runGet", () => {
     const out = join(dir, "out.html");
     let stdoutWritten = "";
     await runGet(
-      { urlOrPath: "https://x/y", out },
+      { urlOrPath: "x.html", out },
       {
         token: "t",
-        head: async () => ({ url: "" } as any),
-        fetch: (async () => new Response("filebody")) as any,
+        viewerUrl: "https://v.example.com",
+        get: okGet("filebody"),
         writeStdout: (chunk: Buffer) => {
           stdoutWritten += chunk.toString();
         },
@@ -71,17 +98,31 @@ describe("runGet", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  test("non-2xx response throws", async () => {
+  test("throws on null result (not found)", async () => {
     await expect(
       runGet(
-        { urlOrPath: "https://x/y" },
+        { urlOrPath: "missing.html" },
         {
           token: "t",
-          head: async () => ({ url: "" } as any),
-          fetch: (async () => new Response("not found", { status: 404 })) as any,
+          viewerUrl: "https://v.example.com",
+          get: (async () => null) as any,
           writeStdout: () => {},
         },
       ),
-    ).rejects.toThrow(/404/);
+    ).rejects.toThrow(/not found/i);
+  });
+
+  test("throws on 304 result", async () => {
+    await expect(
+      runGet(
+        { urlOrPath: "x.html" },
+        {
+          token: "t",
+          viewerUrl: "https://v.example.com",
+          get: (async () => ({ statusCode: 304, stream: null, headers: new Headers(), blob: null })) as any,
+          writeStdout: () => {},
+        },
+      ),
+    ).rejects.toThrow(/not found|304/i);
   });
 });
