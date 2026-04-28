@@ -1,33 +1,56 @@
 {
-  "name": "blob-cli",
-  "version": "0.2.0",
-  "description": "Tiny CLI for publishing static files to Vercel Blob.",
+  "name": "@bubuding0809/blob-cli",
+  "version": "0.2.1",
+  "description": "Tiny CLI for publishing static files to a private Vercel Blob store, with inline-rendering URLs via your own viewer.",
   "type": "module",
   "bin": {
     "blob": "./dist/cli.js"
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "bun build src/cli.ts --target=node --outfile=dist/cli.js && chmod +x dist/cli.js",
     "test": "bun test",
     "test:integration": "bun test test/integration.test.ts",
-    "dev": "bun run src/cli.ts"
-  },
-  "dependencies": {
-    "@vercel/blob": "^2.3.3",
-    "commander": "^12.1.0",
-    "mime-types": "^2.1.35"
+    "dev": "bun run src/cli.ts",
+    "prepublishOnly": "bun run build"
   },
   "devDependencies": {
     "@types/bun": "latest",
     "@types/mime-types": "^2.1.4",
     "@types/node": "^22.0.0",
+    "@vercel/blob": "^2.3.3",
+    "commander": "^12.1.0",
+    "mime-types": "^2.1.35",
     "typescript": "^5.6.0"
   },
   "engines": {
     "node": ">=18"
+  },
+  "license": "MIT",
+  "author": "bubuding0809 <bubuding0809@gmail.com>",
+  "homepage": "https://github.com/bubuding0809/blob-cli#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bubuding0809/blob-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/bubuding0809/blob-cli/issues"
+  },
+  "keywords": [
+    "vercel",
+    "blob",
+    "cli",
+    "upload",
+    "share",
+    "html",
+    "viewer",
+    "static-files"
+  ],
+  "publishConfig": {
+    "access": "public"
   }
 }

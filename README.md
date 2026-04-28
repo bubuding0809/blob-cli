@@ -13,7 +13,7 @@ The CLI uploads to your Blob store and prints URLs that point at your viewer. Yo
 ## Install
 
 ```bash
-npm i -g blob-cli
+npm i -g @bubuding0809/blob-cli
 ```
 
 ## One-time setup

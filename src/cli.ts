@@ -7,6 +7,7 @@ import { runList } from "./commands/list.ts";
 import { runGet } from "./commands/get.ts";
 import { runDelete } from "./commands/delete.ts";
 import { printError } from "./output.ts";
+import pkg from "../package.json" with { type: "json" };
 
 let jsonMode = false;
 
@@ -15,7 +16,7 @@ const program = new Command();
 program
   .name("blob")
   .description("Tiny CLI for publishing static files to Vercel Blob (BYOB).")
-  .version("0.2.0");
+  .version(pkg.version);
 
 program
   .command("init")
