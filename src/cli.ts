@@ -15,7 +15,7 @@ const program = new Command();
 program
   .name("blob")
   .description("Tiny CLI for publishing static files to Vercel Blob (BYOB).")
-  .version("0.1.0");
+  .version("0.2.0");
 
 program
   .command("init")
