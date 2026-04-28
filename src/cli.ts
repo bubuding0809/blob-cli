@@ -22,7 +22,15 @@ program
   .command("init")
   .description("Set up your Vercel Blob token (one-time onboarding).")
   .option("--force", "overwrite existing config or env-set token")
-  .action(async (opts) => runInit({ force: !!opts.force }));
+  .option("--token <token>", "Vercel Blob read/write token (skips token prompt)")
+  .option("--viewer-url <url>", "Deployed viewer URL (skips viewer prompt)")
+  .action(async (opts) =>
+    runInit({
+      force: !!opts.force,
+      token: opts.token,
+      viewerUrl: opts.viewerUrl,
+    }),
+  );
 
 program
   .command("upload <path>")
