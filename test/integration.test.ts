@@ -9,7 +9,8 @@ import { runGet } from "../src/commands/get.ts";
 import { runDelete } from "../src/commands/delete.ts";
 
 const token = process.env.BLOB_TEST_TOKEN;
-const describeIf = token ? describe : describe.skip;
+const viewerUrl = process.env.BLOB_TEST_VIEWER_URL;
+const describeIf = token && viewerUrl ? describe : describe.skip;
 
 describeIf("integration: full CRUD against real Vercel Blob", () => {
   let dir: string;
@@ -35,7 +36,7 @@ describeIf("integration: full CRUD against real Vercel Blob", () => {
     }) as any;
 
     try {
-      await runUpload({ path: file }, { token: token! });
+      await runUpload({ path: file }, { token: token!, viewerUrl: viewerUrl! });
     } finally {
       process.stdout.write = origWrite;
     }
@@ -53,7 +54,7 @@ describeIf("integration: full CRUD against real Vercel Blob", () => {
     }) as any;
 
     try {
-      await runList({ limit: 100, json: false }, { token: token! });
+      await runList({ limit: 100, json: false }, { token: token!, viewerUrl: viewerUrl! });
     } finally {
       process.stdout.write = origWrite;
     }
@@ -63,7 +64,7 @@ describeIf("integration: full CRUD against real Vercel Blob", () => {
 
   test("get fetches the uploaded content", async () => {
     const out = join(dir, "fetched.html");
-    await runGet({ urlOrPath: uploadedUrl!, out }, { token: token! });
+    await runGet({ urlOrPath: uploadedUrl!, out }, { token: token!, viewerUrl: viewerUrl! });
     const content = readFileSync(out, "utf8");
     expect(content).toContain("integration");
   });

@@ -207,4 +207,30 @@ describe("runInit", () => {
     ).rejects.toThrow(/3 attempts/);
     expect(viewerCalls).toBe(3);
   });
+
+  test("empty viewer URL prompt does not consume an attempt; shows deploy guidance", async () => {
+    let viewerCalls = 0;
+    let promptCalls = 0;
+    const responses = ["", "", "https://v.example.com"];
+    await runInit(
+      { force: false },
+      {
+        prompt: async (q: string) => {
+          if (q.includes("Token")) return "blob_rw_ok";
+          promptCalls++;
+          return responses[Math.min(promptCalls - 1, responses.length - 1)];
+        },
+        validate: async () => true,
+        validateViewer: async () => {
+          viewerCalls++;
+          return true;
+        },
+        openBrowser: async () => {},
+        log: () => {},
+      },
+    );
+    // 3 prompts (2 empty, 1 success) but only 1 viewer validation
+    expect(promptCalls).toBe(3);
+    expect(viewerCalls).toBe(1);
+  });
 });

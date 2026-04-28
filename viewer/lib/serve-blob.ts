@@ -16,10 +16,11 @@ export async function serveBlob(pathname: string, deps: ServeBlobDeps): Promise<
   }
   const contentType = result.headers.get("content-type") ?? "application/octet-stream";
   const filename = pathname.split("/").pop() ?? pathname;
+  const safeFilename = filename.replace(/"/g, "");
   return new Response(result.stream, {
     headers: {
       "content-type": contentType,
-      "content-disposition": `inline; filename="${filename}"`,
+      "content-disposition": `inline; filename="${safeFilename}"`,
       "cache-control": "private, max-age=300",
     },
   });

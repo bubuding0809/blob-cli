@@ -125,8 +125,12 @@ export async function runInit(opts: InitOpts, deps: InitDeps = {}): Promise<void
       "",
     );
     if (!candidate) {
-      attempts++;
-      log("Empty input — paste the deployment URL.");
+      log("");
+      log("To deploy the viewer:");
+      log("  1. Open https://github.com/bubuding0809/blob-cli#viewer");
+      log("  2. Click the 'Deploy with Vercel' button.");
+      log("  3. Set BLOB_READ_WRITE_TOKEN, VIEWER_PASSWORD, VIEWER_SESSION_SECRET as prompted.");
+      log("  4. Once deployed, copy the URL and paste it below.");
       continue;
     }
     log("Validating viewer…");

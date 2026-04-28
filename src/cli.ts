@@ -27,11 +27,7 @@ program
   .command("upload <path>")
   .description("Upload a file and print its viewer URL.")
   .option("--name <name>", "override the blob filename")
-  .option("--json", "machine-readable output")
-  .action(async (path, opts) => {
-    jsonMode = !!opts.json;
-    return runUpload({ path, name: opts.name });
-  });
+  .action(async (path, opts) => runUpload({ path, name: opts.name }));
 
 program
   .command("list")

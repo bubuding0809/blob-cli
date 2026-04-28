@@ -85,4 +85,12 @@ describe("serveBlob", () => {
     expect(captured.options.access).toBe("private");
     expect(captured.options.token).toBe("secret");
   });
+
+  test("strips double-quotes from content-disposition filename", async () => {
+    const res = await serveBlob('report"evil.html', {
+      token: "t",
+      get: okGet("x", "text/html"),
+    });
+    expect(res.headers.get("content-disposition")).toBe('inline; filename="reportevil.html"');
+  });
 });
