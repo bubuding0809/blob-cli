@@ -9,15 +9,15 @@ describe("runDelete", () => {
       { urlOrPath: "https://x/y.html", json: false },
       {
         token: "t",
-        del: async (target: string, _opts: any) => {
+        del: (async (target: string, _opts: any) => {
           deletedArg = target;
-        },
+        }) as any,
         printResult: (r, _o) => {
           printed = r.text;
         },
       },
     );
-    expect(deletedArg).toBe("https://x/y.html");
+    expect(deletedArg as any).toBe("https://x/y.html");
     expect(printed).toBe("deleted: https://x/y.html");
   });
 
@@ -27,7 +27,7 @@ describe("runDelete", () => {
       { urlOrPath: "x.html", json: true },
       {
         token: "t",
-        del: async () => {},
+        del: (async () => {}) as any,
         printResult: (r, opts) => {
           if (opts.json) json = r.json;
         },

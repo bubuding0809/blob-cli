@@ -26,7 +26,7 @@ describe("runUpload", () => {
       { path: file, json: false },
       {
         token: "blob_rw_test",
-        put: fakePut,
+        put: fakePut as any,
         printResult: fakePrintResult,
       },
     );
@@ -52,10 +52,10 @@ describe("runUpload", () => {
       { path: file, name: "renamed.txt", json: false },
       {
         token: "t",
-        put: async (name, _body, _opts) => {
+        put: (async (name: any, _body: any, _opts: any) => {
           captured = name;
           return { url: "https://x" };
-        },
+        }) as any,
         printResult: () => {},
       },
     );
@@ -74,10 +74,10 @@ describe("runUpload", () => {
       { path: file, json: false },
       {
         token: "t",
-        put: async (_n, _b, opts) => {
+        put: (async (_n: any, _b: any, opts: any) => {
           capturedType = opts.contentType;
           return { url: "https://x" };
-        },
+        }) as any,
         printResult: () => {},
       },
     );
@@ -96,7 +96,7 @@ describe("runUpload", () => {
       { path: file, json: true },
       {
         token: "t",
-        put: async () => ({ url: "https://x.com/y" }),
+        put: (async () => ({ url: "https://x.com/y" })) as any,
         printResult: (result, opts) => {
           if (opts.json) printedJson = result.json;
         },

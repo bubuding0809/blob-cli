@@ -16,16 +16,16 @@ describe("runGet", () => {
         head: async () => {
           throw new Error("should not be called for direct URL");
         },
-        fetch: async (u: string) => {
+        fetch: (async (u: string) => {
           fetched = u;
           return new Response("hello");
-        },
+        }) as any,
         writeStdout: (chunk: Buffer) => {
           written += chunk.toString();
         },
       },
     );
-    expect(fetched).toBe("https://example.com/x.html");
+    expect(fetched as any).toBe("https://example.com/x.html");
     expect(written).toBe("hello");
   });
 
@@ -40,15 +40,15 @@ describe("runGet", () => {
           headCalled = p;
           return { url: "https://store/report-x.html" } as any;
         },
-        fetch: async (u: string) => {
+        fetch: (async (u: string) => {
           fetched = u;
           return new Response("body");
-        },
+        }) as any,
         writeStdout: () => {},
       },
     );
-    expect(headCalled).toBe("report.html");
-    expect(fetched).toBe("https://store/report-x.html");
+    expect(headCalled as any).toBe("report.html");
+    expect(fetched as any).toBe("https://store/report-x.html");
   });
 
   test("--out writes to file instead of stdout", async () => {
@@ -60,7 +60,7 @@ describe("runGet", () => {
       {
         token: "t",
         head: async () => ({ url: "" } as any),
-        fetch: async () => new Response("filebody"),
+        fetch: (async () => new Response("filebody")) as any,
         writeStdout: (chunk: Buffer) => {
           stdoutWritten += chunk.toString();
         },
@@ -78,7 +78,7 @@ describe("runGet", () => {
         {
           token: "t",
           head: async () => ({ url: "" } as any),
-          fetch: async () => new Response("not found", { status: 404 }),
+          fetch: (async () => new Response("not found", { status: 404 })) as any,
           writeStdout: () => {},
         },
       ),
