@@ -13,7 +13,7 @@ The CLI uploads to your Blob store and prints URLs that point at your viewer. Yo
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bubuding0809/blob-cli/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bubuding0809/blob-cli/v0.2.4/install.sh | bash
 ```
 
 Or with npm directly:
@@ -21,6 +21,8 @@ Or with npm directly:
 ```bash
 npm i -g @bubuding0809/blob-cli
 ```
+
+The install URL pins to a specific tag, so the script that runs is exactly the version you reviewed — never silently changed by a future commit.
 
 ## One-time setup
 
