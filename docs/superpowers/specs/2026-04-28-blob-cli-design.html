@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>blob-cli — design review</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161922;
+    --ink: #e8eaf0;
+    --ink-dim: #9aa3b2;
+    --accent: #7cc4ff;
+    --good: #7fd29a;
+    --warn: #f0b86e;
+    --rule: #262a35;
+    --code-bg: #0b0d12;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
+    height: 100%;
+  }
+  body {
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4vh 6vw;
+    overflow-y: auto;
+  }
+  .slide {
+    display: none;
+    width: 100%;
+    max-width: 980px;
+    animation: fade 200ms ease-out;
+  }
+  .slide.active { display: block; }
+  @keyframes fade {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  h1 {
+    font-size: clamp(2rem, 4.5vw, 3.4rem);
+    margin: 0 0 0.6rem;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+  }
+  h2 {
+    font-size: clamp(1.4rem, 2.6vw, 2.1rem);
+    margin: 0 0 1.2rem;
+    letter-spacing: -0.015em;
+    color: var(--ink);
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 0.5rem;
+  }
+  h3 {
+    font-size: 1.05rem;
+    margin: 1.2rem 0 0.4rem;
+    color: var(--accent);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  p, li { font-size: 1.02rem; line-height: 1.6; color: var(--ink); }
+  p.lede { font-size: 1.15rem; color: var(--ink-dim); margin-bottom: 1.5rem; }
+  ul, ol { padding-left: 1.3rem; }
+  li { margin-bottom: 0.35rem; }
+  li::marker { color: var(--ink-dim); }
+
+  code, kbd, pre {
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    font-size: 0.92em;
+  }
+  code {
+    background: var(--code-bg);
+    padding: 0.1em 0.4em;
+    border-radius: 4px;
+    color: var(--accent);
+    border: 1px solid var(--rule);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+    overflow-x: auto;
+    margin: 0.6rem 0;
+    line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; border: none; color: var(--ink); }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.2rem;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+  }
+  .card h3 { margin-top: 0; }
+  .pill {
+    display: inline-block;
+    font-size: 0.78rem;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    background: var(--rule);
+    color: var(--ink-dim);
+    margin-right: 0.4rem;
+    letter-spacing: 0.02em;
+  }
+  .pill.good { background: rgba(127, 210, 154, 0.12); color: var(--good); }
+  .pill.warn { background: rgba(240, 184, 110, 0.12); color: var(--warn); }
+  .pill.accent { background: rgba(124, 196, 255, 0.12); color: var(--accent); }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.95rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.55rem 0.7rem;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  th { color: var(--ink-dim); font-weight: 500; }
+
+  nav.controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.8rem 1.2rem;
+    border-top: 1px solid var(--rule);
+    background: var(--panel);
+    font-size: 0.9rem;
+    color: var(--ink-dim);
+  }
+  nav.controls .hint { font-size: 0.82rem; }
+  .counter {
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+    font-weight: 500;
+  }
+  button {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 0.35rem 0.8rem;
+    font: inherit;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button:disabled { opacity: 0.4; cursor: default; }
+  button:disabled:hover { border-color: var(--rule); color: var(--ink); }
+
+  .meta {
+    color: var(--ink-dim);
+    font-size: 0.95rem;
+    margin-top: 1.5rem;
+  }
+  .check { color: var(--good); }
+  .cross { color: var(--warn); }
+
+  /* Title slide */
+  .slide.title {
+    text-align: left;
+  }
+  .slide.title .stamp {
+    font-size: 0.9rem;
+    color: var(--ink-dim);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+  .slide.title h1 { font-size: clamp(2.6rem, 6vw, 4.4rem); }
+  .slide.title .sub {
+    color: var(--ink-dim);
+    font-size: 1.2rem;
+    margin-top: 0.6rem;
+    max-width: 60ch;
+  }
+</style>
+</head>
+<body>
+
+<main>
+
+<!-- 1: Title -->
+<section class="slide title active">
+  <div class="stamp">design spec · 2026-04-28</div>
+  <h1>blob-cli</h1>
+  <p class="sub">A CLI for the agent to publish static files to a public URL — fast upload, no rebuilds, viewable from any browser.</p>
+  <div class="meta">
+    <span class="pill accent">draft</span>
+    <span class="pill">pending review</span>
+  </div>
+  <p class="meta">Use <kbd>→</kbd> / <kbd>←</kbd> or <kbd>Space</kbd> to navigate. Press <kbd>g</kbd> for the goals slide.</p>
+</section>
+
+<!-- 2: Problem -->
+<section class="slide">
+  <h2>The Problem</h2>
+  <p class="lede">Long-form agent output is hard to read in a terminal.</p>
+  <ul>
+    <li>Reports, analyses, and dashboards land as walls of markdown.</li>
+    <li>The user has trouble consuming long markdown text in the CLI.</li>
+    <li>The agent can already write HTML — but there's no fast path to <em>view</em> it.</li>
+  </ul>
+  <h3>What "fast" means</h3>
+  <ul>
+    <li>One shell command → public URL.</li>
+    <li>Round-trip in seconds. No app rebuild. No deploy step.</li>
+  </ul>
+</section>
+
+<!-- 3: Goals & Non-goals -->
+<section class="slide">
+  <h2>Goals & Non-goals</h2>
+  <div class="grid-2">
+    <div class="card">
+      <h3><span class="check">●</span> Goals</h3>
+      <ul>
+        <li>One short command → URL.</li>
+        <li>Full CRUD: <code>upload</code>, <code>list</code>, <code>get</code>, <code>delete</code>.</li>
+        <li><code>npm i -g blob-cli</code> works for anyone — no Bun required.</li>
+        <li><code>--json</code> output mode so the agent can parse it.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3><span class="cross">●</span> Non-goals (v1)</h3>
+      <ul>
+        <li>No private / signed URLs. Everything public.</li>
+        <li>No web UI. CLI is the only interface.</li>
+        <li>No multi-user auth. One token, one user.</li>
+        <li>No file expiry / TTL. You delete when you want.</li>
+        <li><strong>No central server</strong> — BYOB.</li>
+      </ul>
+    </div>
+  </div>
+  <p class="meta"><strong>Implication:</strong> don't upload secrets. The only protection on a public URL is the random suffix.</p>
+</section>
+
+<!-- 4: Storage choice -->
+<section class="slide">
+  <h2>Storage: Vercel Blob</h2>
+  <table>
+    <thead>
+      <tr><th>Option</th><th>Setup</th><th>Public URL</th><th>Verdict</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Vercel Blob</strong></td>
+        <td>Create store, copy token. Done.</td>
+        <td>Returned by <code>put()</code> directly</td>
+        <td class="check">Picked</td>
+      </tr>
+      <tr>
+        <td>Supabase Storage</td>
+        <td>Project + bucket + (often) RLS</td>
+        <td>Constructed from bucket + path</td>
+        <td>Fine, but you don't need a DB</td>
+      </tr>
+      <tr>
+        <td>S3 / R2</td>
+        <td>IAM + public-bucket policy + custom domain</td>
+        <td>Assemble it yourself</td>
+        <td>Overkill for this</td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="meta">Free tier: 1 GB storage, generous bandwidth. One env var: <code>BLOB_READ_WRITE_TOKEN</code>.</p>
+</section>
+
+<!-- 5: Onboarding — BYOB -->
+<section class="slide">
+  <h2>Onboarding — BYOB</h2>
+  <p class="lede">Bring Your Own Blob. The CLI is a thin client; users provide their own Vercel store and token.</p>
+  <div class="grid-2">
+    <div class="card">
+      <h3><span class="check">●</span> Why this works</h3>
+      <ul>
+        <li>Zero ops on the maintainer side — no servers, no costs.</li>
+        <li>Privacy by construction: we never touch user files.</li>
+        <li>Free Vercel tier (1 GB / generous bandwidth) is enough.</li>
+        <li>Familiar shape — same as <code>vercel</code>, <code>gh</code>, <code>aws</code>.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3><span class="warn">●</span> The cost</h3>
+      <ul>
+        <li>One-time setup: account + store + token.</li>
+        <li>Mitigated by <code>blob init</code> opening the right page and walking through it (next slide).</li>
+      </ul>
+    </div>
+  </div>
+  <p class="meta"><em>Hosted-shared model</em> (we run a store, users get accounts on us) is a separate, much larger project — explicitly out of scope.</p>
+</section>
+
+<!-- 6: Runtime & Distribution -->
+<section class="slide">
+  <h2>Runtime & Distribution</h2>
+  <div class="grid-2">
+    <div class="card">
+      <h3>Dev</h3>
+      <ul>
+        <li>Bun runtime — native TS, fast iteration.</li>
+        <li>Source written runtime-agnostically (no <code>Bun.*</code> APIs).</li>
+        <li><code>bun test</code> for tests.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Distribution</h3>
+      <ul>
+        <li><code>bun build --target=node</code> → single bundled JS.</li>
+        <li>Shebang <code>#!/usr/bin/env node</code>.</li>
+        <li>npm package, <code>bin: { "blob": "dist/cli.js" }</code>.</li>
+        <li><code>npx blob</code> works for everyone.</li>
+      </ul>
+    </div>
+  </div>
+  <p class="meta">Bun DX for the developer. Node compat for end users. Both win.</p>
+</section>
+
+<!-- 7: Commands -->
+<section class="slide">
+  <h2>Commands</h2>
+  <p class="lede">All commands take <code>--json</code> for machine-readable output.</p>
+<pre><code>blob init                              # onboarding flow (next slide)
+blob upload &lt;path&gt; [--name N]          # → prints public URL on stdout
+blob list   [--prefix P] [--limit N]   # one line per file
+blob get    &lt;url-or-pathname&gt; [--out F] # streams to stdout or --out
+blob delete &lt;url-or-pathname&gt;          # → "deleted: &lt;url&gt;"</code></pre>
+  <h3>Token resolution order at runtime</h3>
+  <ol>
+    <li><code>BLOB_READ_WRITE_TOKEN</code> env var</li>
+    <li><code>~/.config/blob-cli/config.json</code></li>
+    <li>Error pointing at <code>blob init</code></li>
+  </ol>
+</section>
+
+<!-- 8: blob init flow -->
+<section class="slide">
+  <h2>First run — <code>blob init</code></h2>
+<pre><code>$ blob init
+
+blob-cli needs a Vercel Blob token. Two paths:
+  Already have a token?  Paste it below.
+  Don't have one yet?    Press Enter and I'll open the page.
+
+Token (or Enter): ⏎
+  → opening https://vercel.com/dashboard/stores in your browser…
+
+  1. Sign in or sign up (free).
+  2. "Create Database" → "Blob" → name it, pick a region.
+  3. Open the new store's ".env.local" tab.
+  4. Copy the BLOB_READ_WRITE_TOKEN value (starts with "blob_rw_").
+
+Paste token here: blob_rw_xxxxxxxxxx
+  ✓ validated  (test list() call returned 200)
+  ✓ saved to ~/.config/blob-cli/config.json (chmod 0600)
+
+You're set. Try:  blob upload README.md</code></pre>
+  <h3>Behavior</h3>
+  <ul>
+    <li>Opens the Vercel page via <code>open</code> / <code>xdg-open</code> / <code>start</code>.</li>
+    <li><strong>Validates the token</strong> with a <code>list({ limit: 1 })</code> call — catches typos at init time, not first upload. Up to 3 retries.</li>
+    <li>Idempotent: re-running prompts before overwriting (<code>--force</code> to skip).</li>
+    <li>If <code>BLOB_READ_WRITE_TOKEN</code> env var is set, <code>init</code> notices and exits unless <code>--force</code>.</li>
+  </ul>
+</section>
+
+<!-- 7: Upload command in detail -->
+<section class="slide">
+  <h2>upload — the hot path</h2>
+<pre><code>$ blob upload report.html
+https://&lt;store&gt;.public.blob.vercel-storage.com/report-x7Ka2.html
+
+$ blob upload report.html --json
+{"url":"https://&lt;store&gt;.public.blob.vercel-storage.com/report-x7Ka2.html"}</code></pre>
+  <h3>What it does</h3>
+  <ul>
+    <li>Reads file at <code>&lt;path&gt;</code>.</li>
+    <li>Calls <code>put(name, content, { access: 'public', addRandomSuffix: true })</code>.</li>
+    <li><code>--name</code> defaults to file's basename. Random suffix prevents collisions.</li>
+    <li>Content type inferred from extension (<code>text/html</code>, <code>application/json</code>, …); falls back to <code>application/octet-stream</code>.</li>
+    <li>Prints URL to stdout, nothing else (so the agent can capture it cleanly).</li>
+  </ul>
+</section>
+
+<!-- 8: Project structure -->
+<section class="slide">
+  <h2>Project Structure</h2>
+<pre><code>blob-cli/
+├── package.json          # bin entry, scripts, deps
+├── tsconfig.json
+├── src/
+│   ├── cli.ts            # entrypoint, argument routing only
+│   ├── commands/
+│   │   ├── init.ts
+│   │   ├── upload.ts
+│   │   ├── list.ts
+│   │   ├── get.ts
+│   │   └── delete.ts
+│   ├── config.ts         # token resolution
+│   └── output.ts         # human vs --json formatters
+├── test/                 # bun test
+└── dist/                 # build output (gitignored)</code></pre>
+  <p class="meta">Each command file = one function. <code>cli.ts</code> only parses args and dispatches. Small units, easy to test in isolation.</p>
+</section>
+
+<!-- 9: Dependencies -->
+<section class="slide">
+  <h2>Dependencies</h2>
+  <table>
+    <thead><tr><th>Package</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td><code>@vercel/blob</code></td><td>Official SDK. Single source of truth for the storage backend.</td></tr>
+      <tr><td><code>commander</code></td><td>Argument parsing. Mature, small, well-known.</td></tr>
+      <tr><td><code>mime-types</code></td><td>Content-type lookup for <code>upload</code>.</td></tr>
+    </tbody>
+  </table>
+  <p class="meta">Three runtime deps. Test deps via built-in <code>bun test</code>.</p>
+</section>
+
+<!-- 10: Error handling -->
+<section class="slide">
+  <h2>Error Handling</h2>
+  <ul>
+    <li><strong>Missing token:</strong> one-line error referencing <code>blob init</code>, exit 1.</li>
+    <li><strong>Network / 4xx / 5xx:</strong> surface SDK error message, exit 1. <em>No retries</em> — the agent can re-invoke if it wants to.</li>
+    <li><strong>File not found on upload:</strong> standard <code>ENOENT</code>, exit 1.</li>
+    <li><strong><code>--json</code> mode:</strong> errors as <code>{ "error": "..." }</code> on stderr, same exit codes.</li>
+  </ul>
+  <p class="meta">Principle: fail loud, fail fast. The caller is an agent — it can decide whether to retry, not us.</p>
+</section>
+
+<!-- 11: Testing -->
+<section class="slide">
+  <h2>Testing</h2>
+  <ul>
+    <li><strong>Unit tests</strong> for <code>config.ts</code> (token resolution precedence) and <code>output.ts</code> (formatting).</li>
+    <li><strong>Integration tests</strong> behind a <code>BLOB_TEST_TOKEN</code> env var: real <code>upload → list → get → delete</code> cycle against a real Blob store. Skipped when token is unset.</li>
+    <li><strong>No SDK mocking.</strong> The Blob SDK surface is small, and mocks would mask the only failure modes worth catching: auth and network.</li>
+  </ul>
+</section>
+
+<!-- 12: Review prompts -->
+<section class="slide">
+  <h2>For your review</h2>
+  <p class="lede">Things worth pushing back on if you don't agree:</p>
+  <ol>
+    <li><strong>BYOB.</strong> Each user runs <code>blob init</code> against their own Vercel store. No central server. Confirmed direction?</li>
+    <li><strong>Public-only.</strong> Uploaded files are world-readable to anyone with the URL. OK?</li>
+    <li><strong>Random-suffix filenames.</strong> Every upload gets a unique URL — no "stable URL for the latest report." Acceptable?</li>
+    <li><strong>Bun → Node bundle.</strong> Bun DX during dev; published artifact runs on stock Node. Acceptable compromise?</li>
+    <li><strong>No retries.</strong> Errors propagate up, agent decides. OK or want backoff baked in?</li>
+    <li><strong>Three deps</strong> (<code>@vercel/blob</code>, <code>commander</code>, <code>mime-types</code>). Cut or swap any?</li>
+  </ol>
+  <p class="meta">Approve as-is, or tell me what to change before I move to the implementation plan.</p>
+</section>
+
+</main>
+
+<nav class="controls">
+  <button id="prev" aria-label="Previous slide">← Prev</button>
+  <span class="counter"><span id="cur">1</span> / <span id="total">12</span></span>
+  <span class="hint">← / → · Space · g (goals) · t (top)</span>
+  <button id="next" aria-label="Next slide">Next →</button>
+</nav>
+
+<script>
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  const prevBtn = document.getElementById('prev');
+  const nextBtn = document.getElementById('next');
+  const cur = document.getElementById('cur');
+  const total = document.getElementById('total');
+  total.textContent = slides.length;
+
+  let i = 0;
+  function show(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((s, idx) => s.classList.toggle('active', idx === i));
+    cur.textContent = i + 1;
+    prevBtn.disabled = i === 0;
+    nextBtn.disabled = i === slides.length - 1;
+    if (location.hash !== `#${i + 1}`) history.replaceState(null, '', `#${i + 1}`);
+  }
+  function next() { show(i + 1); }
+  function prev() { show(i - 1); }
+
+  prevBtn.addEventListener('click', prev);
+  nextBtn.addEventListener('click', next);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); next(); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); prev(); }
+    else if (e.key === 'Home' || e.key === 't') { show(0); }
+    else if (e.key === 'End') { show(slides.length - 1); }
+    else if (e.key === 'g') { show(2); }
+  });
+
+  // Allow #N deep links
+  const fromHash = parseInt((location.hash || '').slice(1), 10);
+  if (!isNaN(fromHash) && fromHash >= 1 && fromHash <= slides.length) show(fromHash - 1);
+  else show(0);
+</script>
+
+</body>
+</html>

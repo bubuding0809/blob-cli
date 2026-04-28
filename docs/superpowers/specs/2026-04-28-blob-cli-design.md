@@ -20,6 +20,7 @@ When an AI agent produces long-form output (reports, analyses, dashboards), read
 - No web UI / dashboard. The CLI is the only interface.
 - No multi-user auth. Single token, single user.
 - No file expiry / TTL in v1. Files live until explicitly deleted.
+- **No centrally hosted service.** Users bring their own Vercel Blob store and token (BYOB — see "Onboarding" below). We never see, store, or proxy user data.
 
 ## Storage Backend
 
@@ -28,6 +29,21 @@ When an AI agent produces long-form output (reports, analyses, dashboards), read
 - One env var (`BLOB_READ_WRITE_TOKEN`) and the SDK returns public URLs directly from `put()`.
 - Supabase requires a project + bucket + (often) RLS policies. The user has no DB need here.
 - S3/R2 needs IAM, public-bucket policies, and (for clean URLs) a custom domain.
+
+## Onboarding — BYOB (Bring Your Own Blob)
+
+The CLI is a thin client. There is no central server, no shared infrastructure, no hosted user accounts. Each user provides their own Vercel Blob store and token; their data lives in their own Vercel project.
+
+**Why this model:**
+
+- Zero ops on the maintainer side — no servers, no costs, no abuse story.
+- Privacy by construction: we never touch user files.
+- Free tier on Vercel Blob (1 GB storage, generous bandwidth) is enough for typical use.
+- Same shape as `vercel`, `gh`, `aws` — familiar to developers.
+
+**Cost: a one-time setup at install.** Mitigated by `blob init` (below), which opens the right Vercel page and walks the user through it.
+
+If, in the future, we ever want a hosted-shared model (we run a store, users get accounts on us), that's a separate, much larger project (auth, billing, abuse, ToS) and explicitly out of scope here.
 
 ## Runtime & Distribution
 
@@ -46,9 +62,27 @@ All commands print human-readable output by default; `--json` switches to machin
 
 ### `blob init`
 
-Interactive prompt for `BLOB_READ_WRITE_TOKEN`. Writes to `~/.config/blob-cli/config.json` with file mode `0600`. If the env var is already set, `init` reports that and exits.
+Onboarding flow for first-time users. Goal: get from "I just installed this" to "I have a working token saved" in under a minute.
 
-Resolution order at runtime: env var → config file → error with link to Vercel Blob token docs.
+**Flow:**
+
+1. Greet, explain BYOB in one sentence.
+2. Branch on whether the user already has a token:
+   - **Has token** → paste it now.
+   - **No token / Enter** → open `https://vercel.com/dashboard/stores` in the default browser (`open` on macOS, `xdg-open` on Linux, `start` on Windows). Print copy-paste-able steps:
+     1. Sign in or sign up (free).
+     2. *Create Database* → *Blob* → name it, pick a region.
+     3. Open the new store's *.env.local* tab.
+     4. Copy the value of `BLOB_READ_WRITE_TOKEN` (starts with `blob_rw_`).
+   - Then prompt for the token.
+3. Validate the token by calling `list({ limit: 1 })`. If it fails, print the error and re-prompt (up to 3 attempts). This catches typos and expired tokens at init time, not first upload.
+4. Write to `~/.config/blob-cli/config.json` with file mode `0600`. Print save location and a "try this next" hint.
+
+**Idempotence:** if config already exists, prompt for confirm before overwriting (`--force` skips the prompt). Useful for token rotation.
+
+**Env var precedence:** if `BLOB_READ_WRITE_TOKEN` is already set in the environment, `init` says so and exits without writing. Pass `--force` to write anyway (so the saved token is used in shells where the env var isn't set).
+
+**Resolution order at runtime:** env var → config file → error message that points to `blob init`.
 
 ### `blob upload <path> [--name <name>] [--json]`
 
@@ -110,8 +144,9 @@ No other runtime deps. Test deps via `bun test` (built-in).
 ## Testing
 
 - Unit tests for `config.ts` (token resolution precedence) and `output.ts` (formatting).
+- Unit test for `init` flow's token validation (mock the SDK only here, since the goal is testing the retry/error UX, not the SDK).
 - Integration tests behind a `BLOB_TEST_TOKEN` env var: actual upload → list → get → delete cycle against a real Blob store. Skipped in CI when unset.
-- No mocking of the Blob SDK — its surface is small, and mocks would mask the only failure mode worth catching (auth/network).
+- No mocking of the Blob SDK in integration tests — its surface is small, and mocks would mask the only failure mode worth catching (auth/network).
 
 ## Open Questions
 
