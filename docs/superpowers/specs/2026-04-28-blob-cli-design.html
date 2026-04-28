@@ -448,10 +448,26 @@ $ blob upload report.html --json
 <!-- 11: Testing -->
 <section class="slide">
   <h2>Testing</h2>
+  <h3>Methodology — Red, Green, Blue TDD</h3>
+  <div class="grid-2">
+    <div class="card">
+      <h3 style="color: #ff8a8a">● Red</h3>
+      <p>Write a failing test that pins down the next behavior. Confirm it fails for the <em>right</em> reason.</p>
+    </div>
+    <div class="card">
+      <h3 style="color: var(--good)">● Green</h3>
+      <p>Write the <em>minimum</em> code to make it pass. No premature generalization.</p>
+    </div>
+  </div>
+  <div class="card" style="margin-top: 1rem;">
+    <h3 style="color: var(--accent)">● Blue (Refactor)</h3>
+    <p>Clean up with the test net in place. Tests stay green throughout. Then back to Red.</p>
+  </div>
+  <h3>Layers</h3>
   <ul>
-    <li><strong>Unit tests</strong> for <code>config.ts</code> (token resolution precedence) and <code>output.ts</code> (formatting).</li>
-    <li><strong>Integration tests</strong> behind a <code>BLOB_TEST_TOKEN</code> env var: real <code>upload → list → get → delete</code> cycle against a real Blob store. Skipped when token is unset.</li>
-    <li><strong>No SDK mocking.</strong> The Blob SDK surface is small, and mocks would mask the only failure modes worth catching: auth and network.</li>
+    <li><strong>Unit:</strong> <code>config.ts</code> (token precedence), <code>output.ts</code> (human vs. <code>--json</code>).</li>
+    <li><strong>Unit (init only):</strong> SDK mocked here to test retry/error UX.</li>
+    <li><strong>Integration:</strong> behind <code>BLOB_TEST_TOKEN</code>, full <code>upload → list → get → delete</code> against a real store. No SDK mocks.</li>
   </ul>
 </section>
 

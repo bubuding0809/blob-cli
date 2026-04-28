@@ -143,10 +143,22 @@ No other runtime deps. Test deps via `bun test` (built-in).
 
 ## Testing
 
-- Unit tests for `config.ts` (token resolution precedence) and `output.ts` (formatting).
-- Unit test for `init` flow's token validation (mock the SDK only here, since the goal is testing the retry/error UX, not the SDK).
-- Integration tests behind a `BLOB_TEST_TOKEN` env var: actual upload → list → get → delete cycle against a real Blob store. Skipped in CI when unset.
-- No mocking of the Blob SDK in integration tests — its surface is small, and mocks would mask the only failure mode worth catching (auth/network).
+### Methodology: Red-Green-Blue TDD
+
+Every unit of behavior is built test-first, in this cycle:
+
+1. **Red** — write a failing test that pins down the next piece of behavior. Run it; confirm it fails for the *right* reason (assertion, not setup error).
+2. **Green** — write the minimum code that makes the test pass. No premature generalization.
+3. **Blue** — refactor with the test net in place. Tests stay green throughout.
+
+No skipping straight to implementation. Each command (`init`, `upload`, `list`, `get`, `delete`) is built one R-G-B cycle at a time, smallest behavior first.
+
+### Test layers
+
+- **Unit tests** for `config.ts` (token resolution precedence) and `output.ts` (human vs. `--json` formatting).
+- **Unit test for `init`** flow's token validation. The SDK is mocked *only here* because the goal is testing the retry/error UX, not the SDK.
+- **Integration tests** behind a `BLOB_TEST_TOKEN` env var: real upload → list → get → delete cycle against a real Blob store. Skipped in CI when the token is unset.
+- **No mocking of the Blob SDK in integration tests.** Its surface is small, and mocks would hide the only failure modes worth catching (auth, network).
 
 ## Open Questions
 
