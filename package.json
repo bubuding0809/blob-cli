@@ -17,7 +17,7 @@
     "dev": "bun run src/cli.ts"
   },
   "dependencies": {
-    "@vercel/blob": "^0.27.0",
+    "@vercel/blob": "^2.3.3",
     "commander": "^12.1.0",
     "mime-types": "^2.1.35"
   },
