@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>blob-cli viewer pivot — design</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/black.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css" />
+<style>
+  :root {
+    --pill-ok-bg: #143b1f;
+    --pill-ok-fg: #6ee7a0;
+    --pill-bad-bg: #3b1414;
+    --pill-bad-fg: #ff8a8a;
+    --pill-warn-bg: #3a2c0a;
+    --pill-warn-fg: #ffd470;
+    --pill-note-bg: #16263a;
+    --pill-note-fg: #7fbcff;
+  }
+  .reveal h1, .reveal h2, .reveal h3 { text-transform: none; letter-spacing: 0; }
+  .reveal pre { font-size: 0.62em; box-shadow: none; }
+  .reveal pre code { padding: 14px 18px; border-radius: 6px; }
+  .reveal table { font-size: 0.74em; }
+  .reveal table th { background: #1f1f1f; }
+  .reveal table tr:nth-child(even) td { background: #161616; }
+  .reveal table th, .reveal table td { padding: 6px 10px; border: 1px solid #2a2a2a; }
+  .pill {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 0.75em;
+    font-weight: 600;
+    line-height: 1.6;
+    vertical-align: middle;
+  }
+  .pill.ok   { background: var(--pill-ok-bg);   color: var(--pill-ok-fg); }
+  .pill.bad  { background: var(--pill-bad-bg);  color: var(--pill-bad-fg); }
+  .pill.warn { background: var(--pill-warn-bg); color: var(--pill-warn-fg); }
+  .pill.note { background: var(--pill-note-bg); color: var(--pill-note-fg); }
+  .grid2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    text-align: left;
+    font-size: 0.78em;
+  }
+  .grid2 .col {
+    background: #131313;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .grid2 .col h3 { margin: 0 0 6px 0; font-size: 1.05em; }
+  .highlight {
+    background: linear-gradient(180deg, #1a1f2e, #131722);
+    border-left: 4px solid #7fbcff;
+    padding: 12px 16px;
+    border-radius: 4px;
+    text-align: left;
+    font-size: 0.82em;
+  }
+  .reveal section.center { text-align: center; }
+  .reveal .small { font-size: 0.78em; opacity: 0.85; }
+  .reveal .lead { color: #9fa9b8; font-style: italic; }
+  pre.ascii {
+    background: #0d0d0d;
+    color: #cfd8dc;
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-size: 0.6em;
+    line-height: 1.3;
+    text-align: left;
+  }
+</style>
+</head>
+<body>
+<div class="reveal"><div class="slides">
+
+<section class="center">
+  <h1>blob-cli viewer pivot</h1>
+  <p class="lead">Adding a tiny user-deployed viewer so private blobs render inline</p>
+  <p class="small">spec — 2026-04-28 — supersedes parts of v0.1 design</p>
+</section>
+
+<section>
+  <h2>Why pivot</h2>
+  <ul>
+    <li><span class="pill bad">blocker</span> Vercel Blob forces <code>Content-Disposition: attachment</code> for HTML, Markdown, most text types — files always download</li>
+    <li><span class="pill bad">no override</span> No SDK option to set Content-Disposition; verified across <code>@vercel/blob</code> 0.27 and 2.3</li>
+    <li><span class="pill bad">no escape</span> Vercel Blob has no presigned-download-URL feature — private sharing requires a server-side proxy</li>
+    <li><span class="pill ok">still useful</span> CLI works fine for inline-eligible types (images, PDFs, plain text, JSON, XML, A/V) — but fails the original "AI emits HTML, human views URL" intent</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Architecture</h2>
+<pre class="ascii">
+                 ┌──────────────────┐
+                 │ user's terminal  │
+                 │   (blob upload)  │
+                 └────────┬─────────┘
+                          │ put / list / delete via SDK
+                          ▼
+            ┌─────────────────────────────┐
+            │  Vercel Blob (private)      │
+            │  user-owned store           │
+            └─────────────▲───────────────┘
+                          │ get(pathname, {access:"private"})
+                          │   server-side, with token
+        ┌─────────────────┴─────────────────────────┐
+        │  Viewer (Vercel deployment)               │
+        │  • GET /login,  /api/login → cookie       │
+        │  • GET /        → password-gated browser  │
+        │  • GET /:path   → public, inline render   │
+        │  • GET /api/health                        │
+        └─────────────────▲─────────────────────────┘
+                          │ HTTPS
+                     ┌────┴────┐
+                     │ browser │
+                     └─────────┘
+</pre>
+  <p class="small">Three artifacts, all user-owned. No shared backend. Tokens never leave the user's Vercel account.</p>
+</section>
+
+<section>
+  <h2>Auth model — split</h2>
+  <table>
+    <thead><tr><th>Route</th><th>Auth</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>GET /</code> — directory</td>
+        <td><span class="pill warn">password</span></td>
+        <td>Owner-only browsing; full file list is enumerable</td>
+      </tr>
+      <tr>
+        <td><code>GET /login</code>, <code>POST /api/login</code></td>
+        <td><span class="pill ok">public</span></td>
+        <td>The login flow itself</td>
+      </tr>
+      <tr>
+        <td><code>GET /api/health</code></td>
+        <td><span class="pill ok">public</span></td>
+        <td>CLI <code>blob init</code> uses for validation</td>
+      </tr>
+      <tr>
+        <td><code>GET /:pathname</code> — file</td>
+        <td><span class="pill ok">public</span></td>
+        <td>Shareable links; security via 22-char random suffix</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="highlight">
+    <strong>Mental model:</strong> <code>/</code> is your private dashboard. Individual file URLs are sharable links — recipients click and see rendered HTML, no login.
+  </div>
+</section>
+
+<section>
+  <h2>CLI changes — summary</h2>
+  <table>
+    <thead><tr><th>Command</th><th>Change</th></tr></thead>
+    <tbody>
+      <tr><td><code>blob init</code></td><td>Adds prompt for viewer URL; validates via <code>/api/health</code></td></tr>
+      <tr><td><code>blob upload</code></td><td><code>access: "private"</code>; prints <code>&lt;viewerUrl&gt;/&lt;pathname&gt;</code></td></tr>
+      <tr><td><code>blob list</code></td><td>Rows show viewer URL instead of raw blob URL</td></tr>
+      <tr><td><code>blob get</code></td><td>Uses SDK <code>get()</code> with <code>access: "private"</code></td></tr>
+      <tr><td><code>blob delete</code></td><td>Unchanged</td></tr>
+    </tbody>
+  </table>
+  <p class="small"><span class="pill warn">breaking</span> SDK bump <code>0.27 → 2.3.3</code> — required for <code>access: "private"</code> and the new <code>get()</code></p>
+</section>
+
+<section>
+  <h2>Viewer file layout</h2>
+<pre><code class="language-text" data-noescape>viewer/
+├── package.json
+├── next.config.mjs
+├── tsconfig.json
+├── README.md          (Deploy-to-Vercel button)
+├── .env.example
+├── app/
+│   ├── layout.tsx
+│   ├── globals.css
+│   ├── page.tsx                  (dashboard, gated)
+│   ├── login/page.tsx
+│   ├── api/
+│   │   ├── login/route.ts        (verify + cookie)
+│   │   └── health/route.ts
+│   └── [...pathname]/route.ts    (proxy with inline header)
+└── lib/
+    ├── session.ts                (HMAC sign/verify)
+    └── env.ts</code></pre>
+</section>
+
+<section>
+  <h2>Viewer — file proxy</h2>
+<pre><code class="language-typescript" data-trim>
+import { get } from "@vercel/blob";
+
+export async function GET(_req, { params }) {
+  const pathname = params.pathname.join("/");
+  const result = await get(pathname, {
+    access: "private",
+    token: process.env.BLOB_READ_WRITE_TOKEN!,
+  });
+  if (!result || result.statusCode !== 200) {
+    return new Response("Not found", { status: 404 });
+  }
+  const ct = result.headers.get("content-type") ?? "application/octet-stream";
+  return new Response(result.stream, {
+    headers: {
+      "content-type": ct,
+      "content-disposition": `inline; filename="${pathname.split("/").pop()}"`,
+      "cache-control": "private, max-age=300",
+    },
+  });
+}
+</code></pre>
+  <p class="small">Override of <code>content-disposition</code> is the whole point — Vercel's CDN otherwise returns <code>attachment</code> and browsers download.</p>
+</section>
+
+<section>
+  <h2>Repo layout — flat, not Turbo</h2>
+  <div class="grid2">
+    <div class="col">
+      <h3><span class="pill ok">recommended</span> sibling dirs</h3>
+      <pre><code class="language-text" data-noescape>blob-cli/
+├── package.json   (CLI)
+├── src/, test/, dist/
+├── viewer/
+│   ├── package.json
+│   └── app/, lib/
+└── docs/</code></pre>
+      <p>Each project independent. Simple.</p>
+    </div>
+    <div class="col">
+      <h3><span class="pill bad">deferred</span> Turbo monorepo</h3>
+      <pre><code class="language-text" data-noescape>blob-cli/
+├── apps/cli/
+├── apps/viewer/
+├── packages/shared/
+├── turbo.json
+└── pnpm-workspace.yaml</code></pre>
+      <p>Overhead without payoff — two leaves with no shared imports.</p>
+    </div>
+  </div>
+  <p class="small">Revisit Turbo only if a real shared package emerges. YAGNI for v1.</p>
+</section>
+
+<section>
+  <h2>Required env vars (viewer)</h2>
+  <table>
+    <thead><tr><th>Var</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>BLOB_READ_WRITE_TOKEN</code></td><td>SDK auth — <code>list()</code>, <code>get()</code></td></tr>
+      <tr><td><code>VIEWER_PASSWORD</code></td><td>Plaintext password gate for <code>/</code> (constant-time compared)</td></tr>
+      <tr><td><code>VIEWER_SESSION_SECRET</code></td><td>32-byte random base64 — HMAC key for the session cookie</td></tr>
+    </tbody>
+  </table>
+  <div class="highlight">
+    <strong>Deploy button</strong> in <code>viewer/README.md</code> takes the user to Vercel with <code>root-directory=viewer</code> and prompts for all three envs. ~30s to live URL.
+  </div>
+</section>
+
+<section>
+  <h2>Testing strategy</h2>
+  <div class="grid2">
+    <div class="col">
+      <h3>CLI</h3>
+      <ul class="small">
+        <li>Existing TDD pattern preserved</li>
+        <li>New <code>validateViewer</code> unit tests</li>
+        <li><code>init.test</code> — second prompt + retries</li>
+        <li><code>upload</code> — assert <code>access: "private"</code></li>
+        <li>SDK 2.3.3 mock signature touchups</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h3>Viewer</h3>
+      <ul class="small">
+        <li>Unit: <code>session.ts</code> sign/verify; tampered/expired rejected</li>
+        <li>Routes: handlers called with mock <code>Request</code></li>
+        <li>Dashboard: cookie redirect, <code>list()</code> render</li>
+        <li>Manual smoke: deploy → upload → view inline</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Out of scope (v1)</h2>
+  <ul>
+    <li><span class="pill note">defer</span> Time-limited / per-recipient signed share URLs</li>
+    <li><span class="pill note">defer</span> Browser-side upload / rename / delete from dashboard</li>
+    <li><span class="pill note">defer</span> Pagination, search, folder hierarchy</li>
+    <li><span class="pill note">defer</span> Auto-deploying the viewer from the CLI</li>
+    <li><span class="pill bad">no</span> Hosted/shared multi-tenant viewer</li>
+    <li><span class="pill bad">no</span> Multi-store support in one CLI install</li>
+  </ul>
+  <p class="small">If any of these surface as pressure during implementation, stop and re-spec.</p>
+</section>
+
+<section class="center">
+  <h2>Next steps</h2>
+  <p class="small">Review this spec in the markdown source.<br/>Once approved → invoke <code>writing-plans</code> for the implementation plan.<br/>CLI bumps to <code>0.2.0</code> (breaking).</p>
+  <p class="small lead">spec: <code>docs/superpowers/specs/2026-04-28-blob-cli-viewer-design.md</code></p>
+</section>
+
+</div></div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script>
+  Reveal.initialize({
+    hash: true,
+    transition: "fade",
+    plugins: [RevealHighlight],
+  });
+</script>
+</body>
+</html>
