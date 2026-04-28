@@ -1,45 +1,46 @@
 # blob-cli
 
-Tiny CLI for publishing static files to your Vercel Blob store and getting back a public URL. Designed for AI agents that produce HTML output you'd rather view in a browser than read in a terminal.
+Tiny CLI for publishing files to your Vercel Blob store and getting back a URL that renders inline in any browser. Designed for AI agents that produce HTML output you'd rather view in a browser than read in a terminal.
+
+## How it works (BYOB + BYOV)
+
+You bring your own:
+- **Blob store** (Vercel Blob, private access)
+- **Viewer** — a small Next.js app you deploy once at [`viewer/`](./viewer) that proxies blob content with inline-render headers and gives you a password-gated file dashboard
+
+The CLI uploads to your Blob store and prints URLs that point at your viewer. Your tokens never leave your Vercel account.
 
 ## Install
 
 ```bash
 npm i -g blob-cli
-# or
-npx blob-cli <command>
 ```
 
-## One-time setup (BYOB)
+## One-time setup
 
-You bring your own Vercel Blob store. Run:
-
-```bash
-blob init
-```
-
-It walks you through creating a free Vercel Blob store and pasting the token. The token is saved to `~/.config/blob-cli/config.json` (mode `0600`).
-
-You can also set `BLOB_READ_WRITE_TOKEN` in your shell — that takes precedence.
+1. **Create a private Vercel Blob store.** Vercel dashboard → Storage → Create Database → Blob. Copy the `BLOB_READ_WRITE_TOKEN` from its `.env.local` tab.
+2. **Deploy the viewer** using the [Deploy to Vercel button](./viewer/README.md). You'll set three env vars: the blob token, a dashboard password, and a session secret. Copy the deployment URL when it's done.
+3. **Run** `blob init`. Paste the blob token, then paste the viewer URL. Done.
 
 ## Commands
 
 ```bash
 blob upload report.html
-# → https://<store>.public.blob.vercel-storage.com/report-x7Ka2.html
+# → https://blob-viewer-xxx.vercel.app/report-x7Ka2.html
 
 blob list
-# 2026-04-28T10:00:00Z   1234   https://...
+# 2026-04-28T10:00:00Z   1234   https://blob-viewer-xxx.vercel.app/...
 
-blob get <url-or-pathname> [--out file]
+blob get <viewer-url-or-pathname> [--out file]
 
-blob delete <url-or-pathname>
+blob delete <viewer-url-or-pathname>
 ```
 
-All commands accept `--json` for machine-readable output.
+`list` and `delete` accept `--json` for machine-readable output.
 
 ## Notes
 
-- Uploads are **public** — anyone with the URL can read them. Don't upload secrets.
+- File URLs are open — anyone with a link can view. Security is the unguessable random suffix on the pathname. Don't upload secrets.
+- The dashboard at `/` on the viewer is password-protected.
 - Each upload gets a random suffix; you can't overwrite an existing file in place.
-- BYOB means your data is in your Vercel project. We never see, store, or proxy it.
+- BYOB+BYOV means your data is in your Vercel project. We never see, store, or proxy it.
