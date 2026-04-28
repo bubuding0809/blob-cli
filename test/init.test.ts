@@ -233,4 +233,62 @@ describe("runInit", () => {
     expect(promptCalls).toBe(3);
     expect(viewerCalls).toBe(1);
   });
+
+  test("non-interactive: --token + --viewer-url skip prompts", async () => {
+    const promptCalls: string[] = [];
+    await runInit(
+      { force: false, token: "blob_rw_ok", viewerUrl: "https://v.example.com" },
+      {
+        prompt: async (q: string) => {
+          promptCalls.push(q);
+          return "";
+        },
+        validate: async (t) => t === "blob_rw_ok",
+        validateViewer: async () => true,
+        openBrowser: async () => {},
+        log: () => {},
+      },
+    );
+    expect(promptCalls).toEqual([]);
+    const cfg = JSON.parse(
+      readFileSync(join(tmpHome, ".config/blob-cli/config.json"), "utf8"),
+    );
+    expect(cfg.token).toBe("blob_rw_ok");
+    expect(cfg.viewerUrl).toBe("https://v.example.com");
+  });
+
+  test("non-interactive: invalid --token throws without prompting", async () => {
+    const promptCalls: string[] = [];
+    await expect(
+      runInit(
+        { force: false, token: "bad", viewerUrl: "https://v.example.com" },
+        {
+          prompt: async (q: string) => {
+            promptCalls.push(q);
+            return "";
+          },
+          validate: async () => false,
+          validateViewer: async () => true,
+          openBrowser: async () => {},
+          log: () => {},
+        },
+      ),
+    ).rejects.toThrow(/token/i);
+    expect(promptCalls).toEqual([]);
+  });
+
+  test("non-interactive: invalid --viewer-url throws without prompting", async () => {
+    await expect(
+      runInit(
+        { force: false, token: "blob_rw_ok", viewerUrl: "https://bad.example.com" },
+        {
+          prompt: async () => "",
+          validate: async () => true,
+          validateViewer: async () => false,
+          openBrowser: async () => {},
+          log: () => {},
+        },
+      ),
+    ).rejects.toThrow(/viewer/i);
+  });
 });

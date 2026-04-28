@@ -6,6 +6,8 @@ import { prompt as defaultPrompt, type PromptFn } from "../prompt.ts";
 
 export interface InitOpts {
   force: boolean;
+  token?: string;
+  viewerUrl?: string;
 }
 
 export interface ValidateDeps {
@@ -81,67 +83,82 @@ export async function runInit(opts: InitOpts, deps: InitDeps = {}): Promise<void
     }
   }
 
-  log("blob-cli needs a Vercel Blob token. (See: https://vercel.com/docs/storage/vercel-blob)");
-  log("  Already have a token?  Paste it below.");
-  log("  Don't have one yet?    Press Enter and I'll open the page.");
-
   // Phase 1: token
   let token = "";
-  let attempts = 0;
-  while (attempts < MAX_ATTEMPTS) {
-    let candidate = await ask("Token (or Enter): ");
-    if (!candidate) {
-      log(`Opening ${VERCEL_BLOB_URL} in your browser…`);
-      await openBrowser(VERCEL_BLOB_URL);
-      log("Steps:");
-      log("  1. Sign in or sign up (free).");
-      log("  2. Create Database → Blob → name & region.");
-      log("  3. Open the new store's '.env.local' tab.");
-      log("  4. Copy the BLOB_READ_WRITE_TOKEN value (starts with 'blob_rw_').");
-      candidate = await ask("Paste token here: ");
+  if (opts.token) {
+    log("Validating provided token…");
+    if (!(await validate(opts.token))) {
+      throw new Error("provided --token was rejected by Vercel");
     }
-    log("Validating token…");
-    if (await validate(candidate)) {
-      token = candidate;
-      break;
+    token = opts.token;
+  } else {
+    log("blob-cli needs a Vercel Blob token. (See: https://vercel.com/docs/storage/vercel-blob)");
+    log("  Already have a token?  Paste it below.");
+    log("  Don't have one yet?    Press Enter and I'll open the page.");
+    let attempts = 0;
+    while (attempts < MAX_ATTEMPTS) {
+      let candidate = await ask("Token (or Enter): ");
+      if (!candidate) {
+        log(`Opening ${VERCEL_BLOB_URL} in your browser…`);
+        await openBrowser(VERCEL_BLOB_URL);
+        log("Steps:");
+        log("  1. Sign in or sign up (free).");
+        log("  2. Create Database → Blob → name & region.");
+        log("  3. Open the new store's '.env.local' tab.");
+        log("  4. Copy the BLOB_READ_WRITE_TOKEN value (starts with 'blob_rw_').");
+        candidate = await ask("Paste token here: ");
+      }
+      log("Validating token…");
+      if (await validate(candidate)) {
+        token = candidate;
+        break;
+      }
+      attempts++;
+      log(`✗ token rejected by Vercel. ${MAX_ATTEMPTS - attempts} attempt(s) left.`);
     }
-    attempts++;
-    log(`✗ token rejected by Vercel. ${MAX_ATTEMPTS - attempts} attempt(s) left.`);
+    if (!token) throw new Error(`init failed after ${MAX_ATTEMPTS} attempts`);
   }
-  if (!token) throw new Error(`init failed after ${MAX_ATTEMPTS} attempts`);
 
   // Phase 2: viewer URL
-  log("");
-  log("Now the viewer. blob-cli needs a small Next.js app you deploy once that proxies");
-  log("blobs with proper inline-render headers and serves a private file dashboard.");
-  log("Deploy the viewer (root-directory=viewer) at:");
-  log("  https://github.com/bubuding0809/blob-cli#viewer");
-
   let viewerUrl = "";
-  attempts = 0;
-  while (attempts < MAX_ATTEMPTS) {
-    const candidate = (await ask("Viewer URL (e.g. https://blob-viewer-xxx.vercel.app): ")).replace(
-      /\/+$/,
-      "",
-    );
-    if (!candidate) {
-      log("");
-      log("To deploy the viewer:");
-      log("  1. Open https://github.com/bubuding0809/blob-cli#viewer");
-      log("  2. Click the 'Deploy with Vercel' button.");
-      log("  3. Set BLOB_READ_WRITE_TOKEN, VIEWER_PASSWORD, VIEWER_SESSION_SECRET as prompted.");
-      log("  4. Once deployed, copy the URL and paste it below.");
-      continue;
+  if (opts.viewerUrl) {
+    const candidate = opts.viewerUrl.replace(/\/+$/, "");
+    log("Validating provided viewer URL…");
+    if (!(await validateV(candidate))) {
+      throw new Error("provided --viewer-url did not respond at /api/health");
     }
-    log("Validating viewer…");
-    if (await validateV(candidate)) {
-      viewerUrl = candidate;
-      break;
+    viewerUrl = candidate;
+  } else {
+    log("");
+    log("Now the viewer. blob-cli needs a small Next.js app you deploy once that proxies");
+    log("blobs with proper inline-render headers and serves a private file dashboard.");
+    log("Deploy the viewer (root-directory=viewer) at:");
+    log("  https://github.com/bubuding0809/blob-cli#viewer");
+    let attempts = 0;
+    while (attempts < MAX_ATTEMPTS) {
+      const candidate = (await ask("Viewer URL (e.g. https://blob-viewer-xxx.vercel.app): ")).replace(
+        /\/+$/,
+        "",
+      );
+      if (!candidate) {
+        log("");
+        log("To deploy the viewer:");
+        log("  1. Open https://github.com/bubuding0809/blob-cli#viewer");
+        log("  2. Click the 'Deploy with Vercel' button.");
+        log("  3. Set BLOB_READ_WRITE_TOKEN, VIEWER_PASSWORD, VIEWER_SESSION_SECRET as prompted.");
+        log("  4. Once deployed, copy the URL and paste it below.");
+        continue;
+      }
+      log("Validating viewer…");
+      if (await validateV(candidate)) {
+        viewerUrl = candidate;
+        break;
+      }
+      attempts++;
+      log(`✗ viewer health check failed. ${MAX_ATTEMPTS - attempts} attempt(s) left.`);
     }
-    attempts++;
-    log(`✗ viewer health check failed. ${MAX_ATTEMPTS - attempts} attempt(s) left.`);
+    if (!viewerUrl) throw new Error(`init failed after ${MAX_ATTEMPTS} attempts`);
   }
-  if (!viewerUrl) throw new Error(`init failed after ${MAX_ATTEMPTS} attempts`);
 
   writeConfig({ token, viewerUrl });
   log(`✓ saved to ${configPath()} (chmod 0600)`);
