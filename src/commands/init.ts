@@ -49,6 +49,7 @@ export async function validateViewer(
 export interface InitDeps {
   prompt?: PromptFn;
   validate?: (token: string) => Promise<boolean>;
+  validateViewer?: (url: string) => Promise<boolean>;
   openBrowser?: (url: string) => Promise<void>;
   log?: (msg: string) => void;
 }
@@ -59,6 +60,7 @@ const MAX_ATTEMPTS = 3;
 export async function runInit(opts: InitOpts, deps: InitDeps = {}): Promise<void> {
   const ask = deps.prompt ?? defaultPrompt;
   const validate = deps.validate ?? ((t: string) => validateToken(t));
+  const validateV = deps.validateViewer ?? ((u: string) => validateViewer(u));
   const openBrowser = deps.openBrowser ?? ((u: string) => openUrl(u));
   const log = deps.log ?? ((m: string) => console.log(m));
 
@@ -83,10 +85,12 @@ export async function runInit(opts: InitOpts, deps: InitDeps = {}): Promise<void
   log("  Already have a token?  Paste it below.");
   log("  Don't have one yet?    Press Enter and I'll open the page.");
 
+  // Phase 1: token
+  let token = "";
   let attempts = 0;
   while (attempts < MAX_ATTEMPTS) {
-    let token = await ask("Token (or Enter): ");
-    if (!token) {
+    let candidate = await ask("Token (or Enter): ");
+    if (!candidate) {
       log(`Opening ${VERCEL_BLOB_URL} in your browser…`);
       await openBrowser(VERCEL_BLOB_URL);
       log("Steps:");
@@ -94,21 +98,48 @@ export async function runInit(opts: InitOpts, deps: InitDeps = {}): Promise<void
       log("  2. Create Database → Blob → name & region.");
       log("  3. Open the new store's '.env.local' tab.");
       log("  4. Copy the BLOB_READ_WRITE_TOKEN value (starts with 'blob_rw_').");
-      token = await ask("Paste token here: ");
+      candidate = await ask("Paste token here: ");
     }
-
     log("Validating token…");
-    const ok = await validate(token);
-    if (ok) {
-      writeConfig({ token });
-      log(`✓ saved to ${configPath()} (chmod 0600)`);
-      log("You're set. Try:  blob upload README.md");
-      return;
+    if (await validate(candidate)) {
+      token = candidate;
+      break;
     }
-
     attempts++;
     log(`✗ token rejected by Vercel. ${MAX_ATTEMPTS - attempts} attempt(s) left.`);
   }
+  if (!token) throw new Error(`init failed after ${MAX_ATTEMPTS} attempts`);
 
-  throw new Error(`init failed after ${MAX_ATTEMPTS} attempts`);
+  // Phase 2: viewer URL
+  log("");
+  log("Now the viewer. blob-cli needs a small Next.js app you deploy once that proxies");
+  log("blobs with proper inline-render headers and serves a private file dashboard.");
+  log("Deploy the viewer (root-directory=viewer) at:");
+  log("  https://github.com/bubuding0809/blob-cli#viewer");
+
+  let viewerUrl = "";
+  attempts = 0;
+  while (attempts < MAX_ATTEMPTS) {
+    const candidate = (await ask("Viewer URL (e.g. https://blob-viewer-xxx.vercel.app): ")).replace(
+      /\/+$/,
+      "",
+    );
+    if (!candidate) {
+      attempts++;
+      log("Empty input — paste the deployment URL.");
+      continue;
+    }
+    log("Validating viewer…");
+    if (await validateV(candidate)) {
+      viewerUrl = candidate;
+      break;
+    }
+    attempts++;
+    log(`✗ viewer health check failed. ${MAX_ATTEMPTS - attempts} attempt(s) left.`);
+  }
+  if (!viewerUrl) throw new Error(`init failed after ${MAX_ATTEMPTS} attempts`);
+
+  writeConfig({ token, viewerUrl });
+  log(`✓ saved to ${configPath()} (chmod 0600)`);
+  log("You're set. Try:  blob upload README.md");
 }

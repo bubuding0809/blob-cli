@@ -30,8 +30,13 @@ describe("runInit", () => {
     await runInit(
       { force: false },
       {
-        prompt: async (q: string) => (q.includes("Token") ? "blob_rw_ok" : ""),
+        prompt: async (q: string) => {
+          if (q.includes("Token")) return "blob_rw_ok";
+          if (/Viewer URL|viewer url/i.test(q)) return "https://v.example.com";
+          return "";
+        },
         validate: async (t) => t === "blob_rw_ok",
+        validateViewer: async () => true,
         openBrowser: async () => {},
         ...stubLog(),
       },
@@ -47,8 +52,12 @@ describe("runInit", () => {
     await runInit(
       { force: false },
       {
-        prompt: async () => responses[i++] ?? "",
+        prompt: async (q: string) => {
+          if (/Viewer URL|viewer url/i.test(q)) return "https://v.example.com";
+          return responses[i++] ?? "";
+        },
         validate: async () => true,
+        validateViewer: async () => true,
         openBrowser: async () => {
           opened++;
         },
@@ -73,6 +82,7 @@ describe("runInit", () => {
             validateCalls++;
             return false;
           },
+          validateViewer: async () => true,
           openBrowser: async () => {},
           ...stubLog(),
         },
@@ -93,6 +103,7 @@ describe("runInit", () => {
           validateCalled = true;
           return true;
         },
+        validateViewer: async () => true,
         openBrowser: async () => {},
         ...stubLog(),
       },
@@ -106,8 +117,12 @@ describe("runInit", () => {
     await runInit(
       { force: true },
       {
-        prompt: async () => "blob_rw_new",
+        prompt: async (q: string) => {
+          if (/Viewer URL|viewer url/i.test(q)) return "https://v.example.com";
+          return "blob_rw_new";
+        },
         validate: async () => true,
+        validateViewer: async () => true,
         openBrowser: async () => {},
         ...stubLog(),
       },
@@ -137,6 +152,7 @@ describe("runInit", () => {
           validateCalled = true;
           return true;
         },
+        validateViewer: async () => true,
         openBrowser: async () => {},
         ...stubLog(),
       },
@@ -145,5 +161,50 @@ describe("runInit", () => {
     expect(validateCalled).toBe(false);
     const cfg = JSON.parse(readFileSync(join(tmpHome, ".config/blob-cli/config.json"), "utf8"));
     expect(cfg.token).toBe("blob_rw_old");
+  });
+
+  test("prompts for viewer URL after token, saves both", async () => {
+    await runInit(
+      { force: false },
+      {
+        prompt: async (q: string) => {
+          if (q.includes("Token")) return "blob_rw_ok";
+          if (/Viewer URL|viewer url/i.test(q)) return "https://v.example.com";
+          return "";
+        },
+        validate: async () => true,
+        validateViewer: async () => true,
+        openBrowser: async () => {},
+        log: () => {},
+      },
+    );
+    const cfg = JSON.parse(
+      readFileSync(join(tmpHome, ".config/blob-cli/config.json"), "utf8"),
+    );
+    expect(cfg.token).toBe("blob_rw_ok");
+    expect(cfg.viewerUrl).toBe("https://v.example.com");
+  });
+
+  test("retries viewer URL up to 3 times then throws", async () => {
+    let viewerCalls = 0;
+    await expect(
+      runInit(
+        { force: false },
+        {
+          prompt: async (q: string) => {
+            if (q.includes("Token")) return "blob_rw_ok";
+            return "https://wrong.example.com";
+          },
+          validate: async () => true,
+          validateViewer: async () => {
+            viewerCalls++;
+            return false;
+          },
+          openBrowser: async () => {},
+          log: () => {},
+        },
+      ),
+    ).rejects.toThrow(/3 attempts/);
+    expect(viewerCalls).toBe(3);
   });
 });
