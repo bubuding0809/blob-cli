@@ -1,0 +1,33 @@
+{
+  "name": "blob-cli",
+  "version": "0.1.0",
+  "description": "Tiny CLI for publishing static files to Vercel Blob.",
+  "type": "module",
+  "bin": {
+    "blob": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "bun build src/cli.ts --target=node --outfile=dist/cli.js && chmod +x dist/cli.js",
+    "test": "bun test",
+    "test:integration": "bun test test/integration.test.ts",
+    "dev": "bun run src/cli.ts"
+  },
+  "dependencies": {
+    "@vercel/blob": "^0.27.0",
+    "commander": "^12.1.0",
+    "mime-types": "^2.1.35"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/mime-types": "^2.1.4",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

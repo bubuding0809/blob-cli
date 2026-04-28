@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.env
+.env.local
+.blob-test-token
+*.log
+.DS_Store
