@@ -10,6 +10,7 @@ import { dirname, join } from "node:path";
 
 export interface Config {
   token: string;
+  viewerUrl?: string;
 }
 
 export function configPath(): string {
@@ -23,17 +24,19 @@ export function readConfig(): Config | null {
   try {
     const data = JSON.parse(readFileSync(p, "utf8"));
     if (typeof data?.token !== "string") return null;
-    return { token: data.token };
+    const out: Config = { token: data.token };
+    if (typeof data.viewerUrl === "string") out.viewerUrl = data.viewerUrl;
+    return out;
   } catch {
     return null;
   }
 }
 
-export function writeConfig(token: string): void {
+export function writeConfig(config: Config): void {
   const p = configPath();
   mkdirSync(dirname(p), { recursive: true });
-  writeFileSync(p, JSON.stringify({ token }, null, 2), { mode: 0o600 });
-  chmodSync(p, 0o600); // ensure 0600 even if file pre-existed
+  writeFileSync(p, JSON.stringify(config, null, 2), { mode: 0o600 });
+  chmodSync(p, 0o600);
 }
 
 export function resolveToken(): string {
@@ -44,4 +47,10 @@ export function resolveToken(): string {
   throw new Error(
     "No Vercel Blob token found. Run `blob init` or set BLOB_READ_WRITE_TOKEN.",
   );
+}
+
+export function resolveViewerUrl(): string {
+  const fromFile = readConfig();
+  if (fromFile?.viewerUrl) return fromFile.viewerUrl;
+  throw new Error("No viewer URL configured. Run `blob init`.");
 }

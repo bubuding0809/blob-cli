@@ -80,7 +80,7 @@ export async function runInit(opts: InitOpts, deps: InitDeps = {}): Promise<void
     log("Validating token…");
     const ok = await validate(token);
     if (ok) {
-      writeConfig(token);
+      writeConfig({ token });
       log(`✓ saved to ${configPath()} (chmod 0600)`);
       log("You're set. Try:  blob upload README.md");
       return;

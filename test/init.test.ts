@@ -119,7 +119,7 @@ describe("runInit", () => {
   test("prompts to confirm overwrite when config exists and --force not set", async () => {
     // Pre-write a config
     const { writeConfig } = await import("../src/config.ts");
-    writeConfig("blob_rw_old");
+    writeConfig({ token: "blob_rw_old" });
 
     let confirmAsked = false;
     let validateCalled = false;

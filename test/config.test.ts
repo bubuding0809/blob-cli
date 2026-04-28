@@ -45,35 +45,61 @@ describe("readConfig", () => {
     writeFileSync(configPath(), JSON.stringify({ token: "blob_rw_abc" }));
     expect(readConfig()).toEqual({ token: "blob_rw_abc" });
   });
+
+  test("returns config with viewerUrl when present", () => {
+    mkdirSync(join(tmpHome, ".config/blob-cli"), { recursive: true });
+    writeFileSync(
+      configPath(),
+      JSON.stringify({ token: "blob_rw_abc", viewerUrl: "https://v.example.com" }),
+    );
+    expect(readConfig()).toEqual({
+      token: "blob_rw_abc",
+      viewerUrl: "https://v.example.com",
+    });
+  });
+
+  test("returns config with viewerUrl undefined when missing", () => {
+    mkdirSync(join(tmpHome, ".config/blob-cli"), { recursive: true });
+    writeFileSync(configPath(), JSON.stringify({ token: "blob_rw_abc" }));
+    expect(readConfig()).toEqual({ token: "blob_rw_abc" });
+  });
 });
 
 describe("writeConfig", () => {
   test("creates directory if missing", () => {
-    writeConfig("blob_rw_xyz");
+    writeConfig({ token: "blob_rw_xyz" });
     expect(existsSync(configPath())).toBe(true);
   });
 
   test("writes file with mode 0600", () => {
-    writeConfig("blob_rw_xyz");
+    writeConfig({ token: "blob_rw_xyz" });
     const mode = statSync(configPath()).mode & 0o777;
     expect(mode).toBe(0o600);
   });
 
-  test("round-trips with readConfig", () => {
-    writeConfig("blob_rw_round");
+  test("round-trips token only with readConfig", () => {
+    writeConfig({ token: "blob_rw_round" });
     expect(readConfig()).toEqual({ token: "blob_rw_round" });
+  });
+
+  test("round-trips token + viewerUrl with readConfig", () => {
+    writeConfig({ token: "blob_rw_round", viewerUrl: "https://v.example.com" });
+    expect(readConfig()).toEqual({
+      token: "blob_rw_round",
+      viewerUrl: "https://v.example.com",
+    });
   });
 });
 
 describe("resolveToken", () => {
   test("env var wins over file", () => {
-    writeConfig("blob_rw_file");
+    writeConfig({ token: "blob_rw_file" });
     process.env.BLOB_READ_WRITE_TOKEN = "blob_rw_env";
     expect(resolveToken()).toBe("blob_rw_env");
   });
 
   test("falls back to file when env unset", () => {
-    writeConfig("blob_rw_file");
+    writeConfig({ token: "blob_rw_file" });
     expect(resolveToken()).toBe("blob_rw_file");
   });
 
