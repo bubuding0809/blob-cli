@@ -50,7 +50,9 @@ export function resolveToken(): string {
 }
 
 export function resolveViewerUrl(): string {
+  const fromEnv = process.env.BLOB_VIEWER_URL;
+  if (fromEnv) return fromEnv;
   const fromFile = readConfig();
   if (fromFile?.viewerUrl) return fromFile.viewerUrl;
-  throw new Error("No viewer URL configured. Run `blob init`.");
+  throw new Error("No viewer URL configured. Run `blob init` or set BLOB_VIEWER_URL.");
 }

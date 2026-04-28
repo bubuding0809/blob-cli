@@ -3,24 +3,28 @@ import { mkdtempSync, rmSync, existsSync, statSync, writeFileSync, mkdirSync } f
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { readConfig, writeConfig, resolveToken, configPath } from "../src/config.ts";
+import { readConfig, writeConfig, resolveToken, resolveViewerUrl, configPath } from "../src/config.ts";
 
 let tmpHome: string;
 let originalHome: string | undefined;
 let originalToken: string | undefined;
+let originalViewer: string | undefined;
 
 beforeEach(() => {
   tmpHome = mkdtempSync(join(tmpdir(), "blob-cli-test-"));
   originalHome = process.env.HOME;
   originalToken = process.env.BLOB_READ_WRITE_TOKEN;
+  originalViewer = process.env.BLOB_VIEWER_URL;
   process.env.HOME = tmpHome;
   delete process.env.BLOB_READ_WRITE_TOKEN;
+  delete process.env.BLOB_VIEWER_URL;
 });
 
 afterEach(() => {
   rmSync(tmpHome, { recursive: true, force: true });
   if (originalHome !== undefined) process.env.HOME = originalHome;
   if (originalToken !== undefined) process.env.BLOB_READ_WRITE_TOKEN = originalToken;
+  if (originalViewer !== undefined) process.env.BLOB_VIEWER_URL = originalViewer;
 });
 
 describe("configPath", () => {
@@ -105,5 +109,22 @@ describe("resolveToken", () => {
 
   test("throws when neither set", () => {
     expect(() => resolveToken()).toThrow(/blob init/);
+  });
+});
+
+describe("resolveViewerUrl", () => {
+  test("env var wins over file", () => {
+    writeConfig({ token: "blob_rw_x", viewerUrl: "https://file.example.com" });
+    process.env.BLOB_VIEWER_URL = "https://env.example.com";
+    expect(resolveViewerUrl()).toBe("https://env.example.com");
+  });
+
+  test("falls back to file when env unset", () => {
+    writeConfig({ token: "blob_rw_x", viewerUrl: "https://file.example.com" });
+    expect(resolveViewerUrl()).toBe("https://file.example.com");
+  });
+
+  test("throws when neither set", () => {
+    expect(() => resolveViewerUrl()).toThrow(/blob init|BLOB_VIEWER_URL/);
   });
 });
