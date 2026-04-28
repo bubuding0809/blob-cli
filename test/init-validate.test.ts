@@ -1,4 +1,5 @@
 import { describe, test, expect } from "bun:test";
+import { BlobAccessError } from "@vercel/blob";
 import { validateToken } from "../src/commands/init.ts";
 
 describe("validateToken", () => {
@@ -9,18 +10,14 @@ describe("validateToken", () => {
 
   test("returns false on auth error", async () => {
     const fakeList = async () => {
-      const e: any = new Error("Forbidden");
-      e.status = 403;
-      throw e;
+      throw new BlobAccessError();
     };
     expect(await validateToken("blob_rw_bad", { list: fakeList })).toBe(false);
   });
 
   test("returns false on 401", async () => {
     const fakeList = async () => {
-      const e: any = new Error("Unauthorized");
-      e.status = 401;
-      throw e;
+      throw new BlobAccessError();
     };
     expect(await validateToken("blob_rw_bad", { list: fakeList })).toBe(false);
   });

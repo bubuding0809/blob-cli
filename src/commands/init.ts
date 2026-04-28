@@ -1,4 +1,4 @@
-import { list as sdkList, type ListCommandOptions, type ListBlobResult } from "@vercel/blob";
+import { list as sdkList, BlobAccessError, type ListCommandOptions, type ListBlobResult } from "@vercel/blob";
 
 import { readConfig, writeConfig, configPath } from "../config.ts";
 import { openUrl } from "../browser.ts";
@@ -21,8 +21,8 @@ export async function validateToken(
   try {
     await list({ limit: 1, token });
     return true;
-  } catch (err: any) {
-    if (err?.status === 401 || err?.status === 403) return false;
+  } catch (err) {
+    if (err instanceof BlobAccessError) return false;
     throw err;
   }
 }
