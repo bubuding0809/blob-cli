@@ -6,7 +6,6 @@ import { prompt as defaultPrompt, type PromptFn } from "../prompt.ts";
 
 export interface InitOpts {
   force: boolean;
-  json: boolean;
 }
 
 export interface ValidateDeps {

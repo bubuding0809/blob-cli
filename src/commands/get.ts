@@ -6,7 +6,6 @@ import { resolveToken } from "../config.ts";
 export interface GetOpts {
   urlOrPath: string;
   out?: string;
-  json: boolean;
 }
 
 export interface GetDeps {

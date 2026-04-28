@@ -10,7 +10,7 @@ describe("runGet", () => {
     let fetched: string | null = null;
     let written = "";
     await runGet(
-      { urlOrPath: "https://example.com/x.html", json: false },
+      { urlOrPath: "https://example.com/x.html" },
       {
         token: "t",
         head: async () => {
@@ -33,7 +33,7 @@ describe("runGet", () => {
     let headCalled: string | null = null;
     let fetched: string | null = null;
     await runGet(
-      { urlOrPath: "report.html", json: false },
+      { urlOrPath: "report.html" },
       {
         token: "t",
         head: async (p: string) => {
@@ -56,7 +56,7 @@ describe("runGet", () => {
     const out = join(dir, "out.html");
     let stdoutWritten = "";
     await runGet(
-      { urlOrPath: "https://x/y", out, json: false },
+      { urlOrPath: "https://x/y", out },
       {
         token: "t",
         head: async () => ({ url: "" } as any),
@@ -74,7 +74,7 @@ describe("runGet", () => {
   test("non-2xx response throws", async () => {
     await expect(
       runGet(
-        { urlOrPath: "https://x/y", json: false },
+        { urlOrPath: "https://x/y" },
         {
           token: "t",
           head: async () => ({ url: "" } as any),

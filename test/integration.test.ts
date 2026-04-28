@@ -63,7 +63,7 @@ describeIf("integration: full CRUD against real Vercel Blob", () => {
 
   test("get fetches the uploaded content", async () => {
     const out = join(dir, "fetched.html");
-    await runGet({ urlOrPath: uploadedUrl!, out, json: false }, { token: token! });
+    await runGet({ urlOrPath: uploadedUrl!, out }, { token: token! });
     const content = readFileSync(out, "utf8");
     expect(content).toContain("integration");
   });

@@ -28,7 +28,7 @@ const stubLog = () => ({ log: () => {} });
 describe("runInit", () => {
   test("happy path: prompts, validates, writes config", async () => {
     await runInit(
-      { force: false, json: false },
+      { force: false },
       {
         prompt: async (q: string) => (q.includes("Token") ? "blob_rw_ok" : ""),
         validate: async (t) => t === "blob_rw_ok",
@@ -45,7 +45,7 @@ describe("runInit", () => {
     const responses = ["", "blob_rw_ok"];
     let i = 0;
     await runInit(
-      { force: false, json: false },
+      { force: false },
       {
         prompt: async () => responses[i++] ?? "",
         validate: async () => true,
@@ -63,7 +63,7 @@ describe("runInit", () => {
     let promptCalls = 0;
     await expect(
       runInit(
-        { force: false, json: false },
+        { force: false },
         {
           prompt: async () => {
             promptCalls++;
@@ -86,7 +86,7 @@ describe("runInit", () => {
     process.env.BLOB_READ_WRITE_TOKEN = "blob_rw_env";
     let validateCalled = false;
     await runInit(
-      { force: false, json: false },
+      { force: false },
       {
         prompt: async () => "x",
         validate: async () => {
@@ -104,7 +104,7 @@ describe("runInit", () => {
   test("--force overrides env var notice", async () => {
     process.env.BLOB_READ_WRITE_TOKEN = "blob_rw_env";
     await runInit(
-      { force: true, json: false },
+      { force: true },
       {
         prompt: async () => "blob_rw_new",
         validate: async () => true,
@@ -124,7 +124,7 @@ describe("runInit", () => {
     let confirmAsked = false;
     let validateCalled = false;
     await runInit(
-      { force: false, json: false },
+      { force: false },
       {
         prompt: async (q: string) => {
           if (/overwrite/i.test(q)) {
