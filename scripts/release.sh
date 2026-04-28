@@ -52,22 +52,25 @@ p.version = '${VERSION}';
 fs.writeFileSync('package.json', JSON.stringify(p, null, 2) + '\n');
 "
 
-if grep -q "/v${PREV_VERSION}/install.sh" README.md; then
-  if [[ "$OSTYPE" == "darwin"* ]]; then
-    sed -i '' "s|/v${PREV_VERSION}/install.sh|/v${VERSION}/install.sh|g" README.md
+INSTALL_URL_FILES=("README.md" "AGENTS.md" "skills/blob-cli-setup/SKILL.md")
+for f in "${INSTALL_URL_FILES[@]}"; do
+  if grep -q "/v${PREV_VERSION}/install.sh" "$f"; then
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+      sed -i '' "s|/v${PREV_VERSION}/install.sh|/v${VERSION}/install.sh|g" "$f"
+    else
+      sed -i "s|/v${PREV_VERSION}/install.sh|/v${VERSION}/install.sh|g" "$f"
+    fi
+    echo "  bumped install URL in $f"
   else
-    sed -i "s|/v${PREV_VERSION}/install.sh|/v${VERSION}/install.sh|g" README.md
+    echo "  note: install URL pattern not found in $f, skipping"
   fi
-  echo "  bumped README install URL"
-else
-  echo "  note: README install URL pattern not found, skipping"
-fi
+done
 
 bun install --frozen-lockfile >/dev/null
 bun test
 bun run build >/dev/null
 
-git add package.json README.md
+git add package.json "${INSTALL_URL_FILES[@]}"
 git commit -m "release: ${VERSION}"
 git tag "$TAG"
 

@@ -35,7 +35,19 @@ The install URL pins to a specific tag, so the script that runs is exactly the v
 ## One-time setup
 
 1. **Create a private Vercel Blob store.** Vercel dashboard → Storage → Create Database → Blob. Copy the `BLOB_READ_WRITE_TOKEN` from its `.env.local` tab.
-2. **Deploy the viewer** using the [Deploy to Vercel button](./viewer/README.md). You'll set three env vars: the blob token, a dashboard password, and a session secret. Copy the deployment URL when it's done.
+
+2. **Deploy the viewer.** Click the button — Vercel clones [`viewer/`](./viewer) into your GitHub as `blob-cli-viewer` and prompts for three env vars:
+
+   [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbubuding0809%2Fblob-cli%2Ftree%2Fmain%2Fviewer&project-name=blob-cli-viewer&repository-name=blob-cli-viewer&env=BLOB_READ_WRITE_TOKEN,VIEWER_PASSWORD,VIEWER_SESSION_SECRET&envDescription=Token+from+your+Blob+store%2C+a+password+for+the+dashboard%2C+and+a+random+32-byte+secret&envLink=https%3A%2F%2Fgithub.com%2Fbubuding0809%2Fblob-cli%2Ftree%2Fmain%2Fviewer%23environment-variables)
+
+   | Var | Value |
+   |---|---|
+   | `BLOB_READ_WRITE_TOKEN` | the token from step 1 |
+   | `VIEWER_PASSWORD` | pick anything unguessable — gates the file dashboard at `/` |
+   | `VIEWER_SESSION_SECRET` | `openssl rand -base64 32` |
+
+   Copy the deployment URL when it's live (~30s). If the button hangs on the GitHub clone step, see [`viewer/README.md`](./viewer/README.md) for a CLI fallback.
+
 3. **Run** `blob init`. Paste the blob token, then paste the viewer URL. Done.
 
 ## First 60 seconds
@@ -97,15 +109,17 @@ blob init --force --token "$BLOB_RW_TOKEN" --viewer-url "$VIEWER_URL"
 
 ## For Claude / agent users
 
-This repo includes:
+This repo ships two pre-built skills at [`skills/`](./skills):
 
-- [`AGENTS.md`](./AGENTS.md) — vendor-neutral install + daily-use guide for any agent.
-- [`.claude/skills/blob-cli-setup/`](./.claude/skills/blob-cli-setup) — Claude skill for one-time onboarding.
-- [`.claude/skills/blob-cli-share/`](./.claude/skills/blob-cli-share) — Claude skill for the everyday "share this artifact" flow.
+- [`skills/blob-cli-setup/`](./skills/blob-cli-setup) — one-time onboarding (run before anything else).
+- [`skills/blob-cli-share/`](./skills/blob-cli-share) — everyday "upload and give me a URL" flow.
 
-To install the skills into your Claude Code:
+Install them with [`npx skills`](https://github.com/vercel-labs/skills) (works for Claude Code, Codex, Cursor, OpenCode, and 50+ other agents):
 
 ```bash
-mkdir -p ~/.claude/skills
-cp -r .claude/skills/blob-cli-* ~/.claude/skills/
+npx skills add bubuding0809/blob-cli
 ```
+
+Next time the user says "share this artifact" the agent picks the right skill automatically.
+
+Also see [`AGENTS.md`](./AGENTS.md) for a vendor-neutral install + daily-use guide.

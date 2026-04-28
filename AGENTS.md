@@ -16,7 +16,7 @@ The user must do **one** Vercel UI step (the Vercel CLI does not currently creat
 
 ```bash
 # 1. Install CLI
-curl -fsSL https://raw.githubusercontent.com/bubuding0809/blob-cli/v0.2.5/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bubuding0809/blob-cli/v0.3.0/install.sh | bash
 
 # 2. Make sure Vercel CLI is logged in
 vercel whoami || vercel login
@@ -70,10 +70,21 @@ If `blob init` errors:
 
 If `vercel deploy` fails mid-script: check `vercel logs <deployment>`, fix the issue, and re-run from step 4.
 
+## If your agent supports skills
+
+This repo ships skills at [`skills/`](./skills). For Claude Code, Codex, Cursor, OpenCode and others, install via [`npx skills`](https://github.com/vercel-labs/skills):
+
+```bash
+npx skills add bubuding0809/blob-cli
+```
+
+That symlinks `skills/blob-cli-setup` and `skills/blob-cli-share` into your agent's local config so you don't have to copy this `AGENTS.md` content into every prompt.
+
 ## Repo structure (for the curious)
 
 - `src/` — CLI source
 - `viewer/` — Next.js app the user deploys
+- `skills/` — pre-built agent skills (installed via `npx skills add`)
 - `dist/` — bundled CLI (built on publish, gitignored)
 - `scripts/release.sh` — release helper, run via `bun run release X.Y.Z`
 - `.github/workflows/publish.yml` — tag-triggered npm publish via OIDC
