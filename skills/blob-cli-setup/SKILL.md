@@ -25,22 +25,24 @@ Fix anything that fails before continuing. To install Vercel CLI: `npm i -g verc
 ## Step 1: Install the CLI
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bubuding0809/blob-cli/v0.2.5/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bubuding0809/blob-cli/v0.3.0/install.sh | bash
 ```
 
 Verify: `blob --version` should print a version starting with `0.2`.
 
 ## Step 2: Get a Vercel Blob token (HUMAN REQUIRED)
 
-Vercel does not expose blob-store creation via CLI. Tell the user:
+Vercel does not expose blob-store creation via CLI — the user must do this part in the dashboard.
 
-> "I need you to create a private Vercel Blob store:
+Prompt the user using your runtime's structured ask-user tool if available (e.g. Claude Code's `AskUserQuestion`, Codex's `request_user_input`), otherwise a plain message. Structured tools give the user a clear typed-answer field and are harder to miss in a busy chat:
+
+> "Create a private Vercel Blob store:
 > 1. Open https://vercel.com/dashboard/stores
 > 2. Click Create → Blob → keep it private
 > 3. Open the new store's `.env.local` tab
-> 4. Copy the `BLOB_READ_WRITE_TOKEN` value and paste it here"
+> 4. Copy the `BLOB_READ_WRITE_TOKEN` value and paste it back here"
 
-Wait for the token. Do not proceed without it.
+Wait for the token. Save it as `$BLOB_TOKEN`. Do not proceed without it.
 
 ## Step 3: Deploy the viewer
 
