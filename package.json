@@ -1,6 +1,6 @@
 {
   "name": "@bubuding0809/blob-cli",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Tiny CLI for publishing static files to a private Vercel Blob store, with inline-rendering URLs via your own viewer.",
   "type": "module",
   "bin": {
