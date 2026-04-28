@@ -25,12 +25,12 @@ program
 
 program
   .command("upload <path>")
-  .description("Upload a file and print its public URL.")
+  .description("Upload a file and print its viewer URL.")
   .option("--name <name>", "override the blob filename")
   .option("--json", "machine-readable output")
   .action(async (path, opts) => {
     jsonMode = !!opts.json;
-    return runUpload({ path, name: opts.name, json: jsonMode });
+    return runUpload({ path, name: opts.name });
   });
 
 program

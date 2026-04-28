@@ -35,13 +35,13 @@ describeIf("integration: full CRUD against real Vercel Blob", () => {
     }) as any;
 
     try {
-      await runUpload({ path: file, json: false }, { token: token! });
+      await runUpload({ path: file }, { token: token! });
     } finally {
       process.stdout.write = origWrite;
     }
 
     uploadedUrl = captured.trim();
-    expect(uploadedUrl).toMatch(/^https:\/\/.*\.public\.blob\.vercel-storage\.com\//);
+    expect(uploadedUrl).toMatch(/^https:\/\//);
   });
 
   test("list contains the uploaded blob", async () => {

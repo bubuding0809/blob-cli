@@ -3,17 +3,17 @@ import { basename } from "node:path";
 import { lookup as lookupMime } from "mime-types";
 import { put as sdkPut, type PutCommandOptions, type PutBlobResult } from "@vercel/blob";
 
-import { resolveToken } from "../config.ts";
+import { resolveToken, resolveViewerUrl } from "../config.ts";
 import { printResult as defaultPrintResult } from "../output.ts";
 
 export interface UploadOpts {
   path: string;
   name?: string;
-  json: boolean;
 }
 
 export interface UploadDeps {
   token?: string;
+  viewerUrl?: string;
   put?: (
     name: string,
     body: Buffer | string,
@@ -24,6 +24,7 @@ export interface UploadDeps {
 
 export async function runUpload(opts: UploadOpts, deps: UploadDeps = {}): Promise<void> {
   const token = deps.token ?? resolveToken();
+  const viewerUrl = (deps.viewerUrl ?? resolveViewerUrl()).replace(/\/+$/, "");
   const put = deps.put ?? sdkPut;
   const printResult = deps.printResult ?? defaultPrintResult;
 
@@ -32,14 +33,12 @@ export async function runUpload(opts: UploadOpts, deps: UploadDeps = {}): Promis
   const contentType = lookupMime(name) || "application/octet-stream";
 
   const blob = await put(name, body, {
-    access: "public",
+    access: "private",
     addRandomSuffix: true,
     contentType,
     token,
   });
 
-  printResult(
-    { text: blob.url, json: { url: blob.url } },
-    { json: opts.json },
-  );
+  const viewUrl = `${viewerUrl}/${blob.pathname}`;
+  printResult({ text: viewUrl, json: { url: viewUrl, pathname: blob.pathname } }, { json: false });
 }
