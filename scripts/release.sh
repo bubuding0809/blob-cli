@@ -52,7 +52,7 @@ p.version = '${VERSION}';
 fs.writeFileSync('package.json', JSON.stringify(p, null, 2) + '\n');
 "
 
-INSTALL_URL_FILES=("README.md" "AGENTS.md" "skills/blob-cli-setup/SKILL.md")
+INSTALL_URL_FILES=("README.md" "skills/blob-cli-setup/SKILL.md")
 for f in "${INSTALL_URL_FILES[@]}"; do
   if grep -q "/v${PREV_VERSION}/install.sh" "$f"; then
     if [[ "$OSTYPE" == "darwin"* ]]; then

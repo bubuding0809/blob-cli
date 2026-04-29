@@ -1,90 +1,59 @@
 # AGENTS.md
 
-Instructions for AI agents installing or operating blob-cli on a user's machine.
+Guidance for AI agents (or humans) working on the blob-cli codebase. If you're trying to _use_ blob-cli rather than develop it, see the [README](./README.md) or run `npx skills add bubuding0809/blob-cli`.
 
-## What this is
+## Repo layout
 
-blob-cli uploads files to a Vercel Blob store and returns URLs that render inline in any browser. Use it when:
+- `src/`: CLI source. Entrypoint is `src/cli.ts`; subcommands live in `src/commands/`.
+- `test/`: unit and integration tests. All run with `bun test`.
+- `viewer/`: a separate Next.js project with its own `package.json`. Proxies blob content with inline-render headers and serves the password-gated dashboard. Deploys independently to Vercel.
+- `skills/`: pre-built agent skills shipped to users via `npx skills add`. Two of them: `blob-cli-setup` and `blob-cli-share`. Each is a directory with a `SKILL.md` (YAML frontmatter + body).
+- `dist/`: bundled CLI, built on publish. Gitignored.
+- `scripts/release.sh`: release helper, invoked via `bun run release X.Y.Z`.
+- `.github/workflows/publish.yml`: tag-triggered npm publish over OIDC. No API tokens to rotate.
 
-- The user generated an HTML/Markdown/SVG artifact and asked to share it
-- A terminal screenshot or text dump is a poor substitute for the actual rendered output
-- The user wants a link they can paste into a chat client that opens in a browser, not a download
+## Tooling
 
-## Installing for a new user
+Bun is the runtime and package manager. Use `bun test`, `bun run build`\*\*\*\*, `bun install --frozen-lockfile`. Don't shell out to `npm` for installs.
 
-The user must do **one** Vercel UI step (the Vercel CLI does not currently create blob stores). Everything else can be CLI-driven.
+TypeScript strict mode. `tsconfig.json` at the root for the CLI, `viewer/tsconfig.json` for the viewer.
 
-```bash
-# 1. Install CLI
-curl -fsSL https://raw.githubusercontent.com/bubuding0809/blob-cli/v0.3.0/install.sh | bash
+The CLI is bundled with `bun build --target=node` rather than transpiled file by file. The output `dist/cli.js` is what npm publishes.
 
-# 2. Make sure Vercel CLI is logged in
-vercel whoami || vercel login
-
-# 3. (Human step) Ask the user to create a private Vercel Blob store:
-#      https://vercel.com/dashboard/stores → Create → Blob → keep it private
-#    Then copy BLOB_READ_WRITE_TOKEN from the new store's .env.local tab.
-#    Wait for the token before continuing.
-
-BLOB_TOKEN="<paste from user>"
-
-# 4. Deploy the viewer (needs a clone of bubuding0809/blob-cli for the viewer source)
-git clone https://github.com/bubuding0809/blob-cli.git /tmp/blob-cli
-cd /tmp/blob-cli/viewer
-vercel link --yes
-PASSWORD=$(openssl rand -base64 24)
-SECRET=$(openssl rand -base64 32)
-echo "$BLOB_TOKEN" | vercel env add BLOB_READ_WRITE_TOKEN production
-echo "$PASSWORD" | vercel env add VIEWER_PASSWORD production
-echo "$SECRET" | vercel env add VIEWER_SESSION_SECRET production
-VIEWER_URL=$(vercel deploy --prod --yes 2>&1 | tail -1)
-
-# 5. Configure the CLI non-interactively
-blob init --force --token "$BLOB_TOKEN" --viewer-url "$VIEWER_URL"
-```
-
-Surface `$PASSWORD` to the user before discarding it — they need it to log into their dashboard at `<viewer-url>/`.
-
-## Daily use
+## Common commands
 
 ```bash
-blob upload <path>      # last line of stdout is the URL
-blob list --json        # machine-readable index
-blob get <url-or-path>  # fetch by viewer URL or pathname
-blob delete <url-or-path>
+bun test                  # full test suite (unit + integration)
+bun test:integration      # integration tests only
+bun run dev <args>        # run the CLI from source without rebuilding
+bun run build             # rebuild dist/cli.js
+bun run release 0.X.Y     # cut a release (see below)
 ```
 
-When emitting a `blob upload` URL to the user, print it as plain text on its own line — no `**bold**`, no markdown emphasis. Users frequently paste these URLs into chat clients that don't render markdown.
+## Release flow
 
-## When NOT to use blob-cli
+`bun run release X.Y.Z` runs `scripts/release.sh`, which:
 
-- The artifact contains secrets. Blob URLs are openly accessible to anyone with the link.
-- The artifact is binary that browsers download anyway (`.zip`, `.tar`, `.dmg`). Use a paste service or git instead.
-- The user explicitly asked to keep something local.
+1. Validates the working tree is clean, the branch is `main`, and the tag doesn't already exist.
+2. Bumps `package.json#version`.
+3. Sweeps the install URL pin (`v<old>/install.sh` → `v<new>/install.sh`) across every file listed in `INSTALL_URL_FILES`. If you add a new doc that quotes the install URL, add it to that array.
+4. Runs `bun test` and `bun run build`.
+5. Commits, tags, pushes. The `publish.yml` workflow takes it from there.
 
-## Troubleshooting
+## Things to keep in sync when changing the Deploy URL
 
-If `blob init` errors:
-- "token rejected by Vercel" → wrong token or wrong store. Re-paste the `BLOB_READ_WRITE_TOKEN` from the store's `.env.local` tab.
-- "viewer health check failed" → viewer isn't deployed or env vars are missing. Curl `<viewer-url>/api/health` to confirm. Should return `{"ok":true}`.
+The Vercel Deploy URL (the one that auto-provisions a private Blob store) appears in three places:
 
-If `vercel deploy` fails mid-script: check `vercel logs <deployment>`, fix the issue, and re-run from step 4.
+- `README.md`
+- `viewer/README.md`
+- `skills/blob-cli-setup/SKILL.md`
 
-## If your agent supports skills
+If you change any parameter (project name, env vars, `stores` config), update all three. There's no automation for this because the URL is structural, not version-pinned.
 
-This repo ships skills at [`skills/`](./skills). For Claude Code, Codex, Cursor, OpenCode and others, install via [`npx skills`](https://github.com/vercel-labs/skills):
+## Skill changes
 
-```bash
-npx skills add bubuding0809/blob-cli
-```
+`npx skills add bubuding0809/blob-cli` clones from GitHub `main`. A change to a `SKILL.md` ships to users the moment it lands on `main`. There's no version-bump dance for skills, so test carefully before merging.
 
-That symlinks `skills/blob-cli-setup` and `skills/blob-cli-share` into your agent's local config so you don't have to copy this `AGENTS.md` content into every prompt.
+## Viewer changes
 
-## Repo structure (for the curious)
-
-- `src/` — CLI source
-- `viewer/` — Next.js app the user deploys
-- `skills/` — pre-built agent skills (installed via `npx skills add`)
-- `dist/` — bundled CLI (built on publish, gitignored)
-- `scripts/release.sh` — release helper, run via `bun run release X.Y.Z`
-- `.github/workflows/publish.yml` — tag-triggered npm publish via OIDC
+`viewer/` is its own deploy target. Test it from the repo root with `cd viewer && bun test`. Run dev with `cd viewer && bun run dev`. Viewer changes only reach users' deployments when those users redeploy. The Deploy button clones from `tree/main/viewer`.
